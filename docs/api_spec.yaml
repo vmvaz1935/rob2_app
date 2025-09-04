@@ -1,0 +1,339 @@
+openapi: 3.1.0
+info:
+  title: API RoB 2
+  version: '0.1.0'
+  description: |
+    Esta especificação descreve os principais endpoints da API utilizada pela aplicação de Avaliação de Risco de Viés (RoB 2). Todos os endpoints prefixados por `/api` exigem autenticação via token JWT obtido no login.
+servers:
+  - url: /api
+paths:
+  /auth/login:
+    post:
+      summary: Realiza login e retorna um token JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Sucesso — token retornado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                    example: bearer
+        '401':
+          description: Credenciais inválidas.
+
+  /projects:
+    get:
+      summary: Lista projetos acessíveis ao usuário.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de projetos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+
+    post:
+      summary: Cria um novo projeto.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      responses:
+        '201':
+          description: Projeto criado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Requisição inválida.
+
+  /projects/{projectId}/studies:
+    get:
+      summary: Lista estudos de um projeto.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de estudos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Study'
+
+  /studies:
+    post:
+      summary: Cria um novo estudo.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyCreate'
+      responses:
+        '201':
+          description: Estudo criado com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Study'
+        '400':
+          description: Requisição inválida.
+
+  /results/{resultId}/evaluation:
+    get:
+      summary: Obtém a avaliação RoB 2 associada a um resultado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Avaliação encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '404':
+          description: Avaliação não encontrada.
+
+  /evaluations:
+    post:
+      summary: Cria ou atualiza uma avaliação RoB 2.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationCreate'
+      responses:
+        '200':
+          description: Avaliação criada/atualizada com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '400':
+          description: Dados inválidos.
+
+  /import:
+    post:
+      summary: Importa um arquivo Excel para criar ou atualizar avaliações.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Importação concluída com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: integer
+                  updated:
+                    type: integer
+        '400':
+          description: Falha na importação.
+
+  /results/{resultId}/export:
+    get:
+      summary: Exporta a avaliação de um resultado para Excel ou DOCX.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resultId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [xlsx, docx]
+            default: xlsx
+      responses:
+        '200':
+          description: Arquivo exportado.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Avaliação não encontrada.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+    ProjectCreate:
+      type: object
+      required:
+        - nome
+      properties:
+        nome:
+          type: string
+
+    Study:
+      type: object
+      properties:
+        id:
+          type: integer
+        projetoId:
+          type: integer
+        referencia:
+          type: string
+        desenho:
+          type: string
+    StudyCreate:
+      type: object
+      required:
+        - projetoId
+        - referencia
+        - desenho
+      properties:
+        projetoId:
+          type: integer
+        referencia:
+          type: string
+        desenho:
+          type: string
+
+    Evaluation:
+      type: object
+      properties:
+        id:
+          type: integer
+        resultadoId:
+          type: integer
+        preConsideracoes:
+          type: string
+        dominios:
+          type: array
+          items:
+            $ref: '#/components/schemas/Domain'
+        julgamentoGlobal:
+          type: string
+        direcaoGlobal:
+          type: string
+        justificativa:
+          type: string
+
+    EvaluationCreate:
+      type: object
+      required:
+        - resultadoId
+        - dominios
+      properties:
+        resultadoId:
+          type: integer
+        preConsideracoes:
+          type: string
+        dominios:
+          type: array
+          items:
+            $ref: '#/components/schemas/DomainCreate'
+
+    Domain:
+      type: object
+      properties:
+        tipo:
+          type: integer
+          description: Domínio (1–5)
+        respostas:
+          type: object
+          additionalProperties:
+            type: string
+        comentarios:
+          type: string
+        julgamento:
+          type: string
+        direcao:
+          type: string
+
+    DomainCreate:
+      type: object
+      required:
+        - tipo
+        - respostas
+      properties:
+        tipo:
+          type: integer
+        respostas:
+          type: object
+          additionalProperties:
+            type: string
+        comentarios:
+          type: string
+        direcao:
+          type: string
+          description: NA, Favorece experimental, Favorece comparador, Em direção ao nulo, Afastando do nulo, Imprevisível
+EOF

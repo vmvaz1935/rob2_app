@@ -1,0 +1,44 @@
+{
+  "dominios": [
+    {
+      "dominio": 1,
+      "descricao": "Viés do processo de randomização",
+      "itens": [
+        {"id": "1.1", "texto": "A sequência de alocação foi verdadeiramente aleatória?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dependeDe": null, "dica": "Descrever gerador/permuta"},
+        {"id": "1.2", "texto": "A sequência de alocação foi ocultada até a inclusão?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
+        {"id": "1.3", "texto": "As características basais sugerem problemas na randomização?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dica": "Comparar grupos quanto a características clínicas"}
+      ]
+    },
+    {
+      "dominio": 2,
+      "descricao": "Desvios das intervenções pretendidas (assignment/adherence)",
+      "itens": [
+        {"id": "2.1", "texto": "Houve desvios das intervenções que poderiam afetar o desfecho?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
+        {"id": "2.2", "texto": "Os participantes e profissionais estavam cegos quanto à intervenção?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dica": "Cegamento ou mascaramento"}
+      ]
+    },
+    {
+      "dominio": 3,
+      "descricao": "Dados de desfecho ausentes",
+      "itens": [
+        {"id": "3.1", "texto": "A proporção de dados ausentes é suficiente para impactar o resultado?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
+        {"id": "3.2", "texto": "A ausência de dados está associada ao verdadeiro valor do desfecho?", "respostas": ["Y", "PY", "PN", "N", "NI"]}
+      ]
+    },
+    {
+      "dominio": 4,
+      "descricao": "Mensuração do desfecho",
+      "itens": [
+        {"id": "4.1", "texto": "O método de mensuração do desfecho é válido e confiável?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
+        {"id": "4.2", "texto": "Os avaliadores estavam cegos quanto à intervenção?", "respostas": ["Y", "PY", "PN", "N", "NI"]}
+      ]
+    },
+    {
+      "dominio": 5,
+      "descricao": "Seleção do resultado relatado",
+      "itens": [
+        {"id": "5.1", "texto": "As análises do desfecho estavam pré‑especificadas?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dica": "Verificar protocolo ou registro"}
+      ]
+    }
+  ]
+}

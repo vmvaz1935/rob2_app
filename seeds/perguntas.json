@@ -1,0 +1,13 @@
+// Seeds de perguntas minimalistas para carregamento inicial
+{
+  "dominios": [
+    {
+      "dominio": 1,
+      "itens": [
+        {"id": "1.1", "texto": "A sequência de alocação foi verdadeiramente aleatória?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
+        {"id": "1.2", "texto": "A sequência de alocação foi ocultada até a inclusão?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
+        {"id": "1.3", "texto": "As características basais sugerem problemas na randomização?", "respostas": ["Y", "PY", "PN", "N", "NI"]}
+      ]
+    }
+  ]
+}

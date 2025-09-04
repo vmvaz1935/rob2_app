@@ -1,0 +1,13 @@
+{
+  "global": {
+    "altoSe": [
+      {"qualquerDominio": "Alto"}
+    ],
+    "algumasPreocupacoesSe": [
+      {"qualquerDominio": "Algumas preocupações"}
+    ],
+    "baixoSe": [
+      {"todosDominios": "Baixo"}
+    ]
+  }
+}

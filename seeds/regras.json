@@ -1,0 +1,30 @@
+// Seeds de regras minimalistas para o motor de decisão
+{
+  "dominios": [
+    {
+      "dominio": 1,
+      "avaliacao": [
+        {
+          "quando": {"1.2": {"in": ["Y", "PY"]}, "1.3": {"in": ["N", "PN", "NI"]}, "1.1": {"in": ["Y", "PY", "NI"]}},
+          "resultado": "Baixo",
+          "justificativa": "Ocultação adequada; sem desequilíbrios claros; sequência aleatória ou plausível."
+        },
+        {
+          "quando": {"1.2": {"in": ["N", "PN"]}},
+          "resultado": "Alto",
+          "justificativa": "A sequência não foi adequadamente ocultada."
+        },
+        {
+          "quando": {"1.2": {"in": ["NI"]}, "1.3": {"in": ["Y", "PY"]}},
+          "resultado": "Alto",
+          "justificativa": "Desequilíbrios basais sugerem falha na randomização."
+        },
+        {
+          "default": true,
+          "resultado": "Algumas preocupações",
+          "justificativa": "Informação insuficiente ou sinais mistos."
+        }
+      ]
+    }
+  ]
+}

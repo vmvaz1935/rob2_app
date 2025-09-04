@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: rob2_db
+          POSTGRES_USER: rob2_user
+          POSTGRES_PASSWORD: rob2_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U rob2_user" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r rob2_app/backend/requirements.txt
+
+      - name: Run migrations
+        run: |
+          psql postgresql://rob2_user:rob2_pass@localhost/rob2_db -f rob2_app/backend/migrations/001_create_tables.sql
+
+      - name: Run tests
+        run: |
+          pytest -q rob2_app/backend/tests

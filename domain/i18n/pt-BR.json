@@ -1,0 +1,48 @@
+{
+  "app.title": "Avaliação de Risco de Viés (RoB 2)",
+  "wizard.steps": [
+    "Pré‑considerações",
+    "Domínio 1",
+    "Domínio 2",
+    "Domínio 3",
+    "Domínio 4",
+    "Domínio 5",
+    "Resumo"
+  ],
+  "answers": {
+    "Y": "Sim",
+    "PY": "Provavelmente sim",
+    "PN": "Provavelmente não",
+    "N": "Não",
+    "NI": "Sem informação",
+    "NA": "Não se aplica"
+  },
+  "judgement": {
+    "Baixo": "Baixo",
+    "Algumas preocupações": "Algumas preocupações",
+    "Alto": "Alto"
+  },
+  "direction": {
+    "NA": "Não se aplica",
+    "Favorece experimental": "Favorece experimental",
+    "Favorece comparador": "Favorece comparador",
+    "Em direção ao nulo": "Em direção ao nulo",
+    "Afastando do nulo": "Afastando do nulo",
+    "Imprevisível": "Imprevisível"
+  },
+  "domainNames": {
+    "1": "Viés do processo de randomização",
+    "2": "Desvios das intervenções pretendidas",
+    "3": "Dados de desfecho ausentes",
+    "4": "Mensuração do desfecho",
+    "5": "Seleção do resultado relatado"
+  },
+  "buttons": {
+    "next": "Próximo",
+    "previous": "Anterior",
+    "finish": "Concluir",
+    "import": "Importar",
+    "export": "Exportar",
+    "generateReport": "Gerar relatório"
+  }
+}
