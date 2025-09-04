@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Perguntas mínimas por domínio para o protótipo
 const perguntas: Record<number, { id: string; texto: string; respostas: string[] }[]> = {
@@ -48,6 +48,25 @@ export default function App() {
   const [preConsiderations, setPreConsiderations] = useState('');
   // Respostas por domínio: {1: {"1.1": "Y", ...}, 2: {...}, ...}
   const [respostas, setRespostas] = useState<Record<number, Record<string, string>>>({});
+  const [apiStatus, setApiStatus] = useState<'unknown' | 'ok' | 'down'>('unknown');
+  const [submitting, setSubmitting] = useState(false);
+  const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
+
+  useEffect(() => {
+    const ping = async () => {
+      if (!apiBaseUrl) {
+        setApiStatus('unknown');
+        return;
+      }
+      try {
+        const resp = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/health`);
+        setApiStatus(resp.ok ? 'ok' : 'down');
+      } catch (_e) {
+        setApiStatus('down');
+      }
+    };
+    ping();
+  }, [apiBaseUrl]);
 
   const nextStep = () => setStep((s) => Math.min(s + 1, stepNames.length - 1));
   const prevStep = () => setStep((s) => Math.max(s - 1, 0));
@@ -100,6 +119,50 @@ export default function App() {
     );
   };
 
+  const buildPayload = () => ({
+    pre_consideracoes: preConsiderations,
+    dominios: Object.entries(respostas).map(([dom, resp]) => ({
+      tipo: Number(dom),
+      respostas: resp,
+      comentarios: null,
+      direcao: 'NA',
+    })),
+  });
+
+  const handleConcluir = async () => {
+    const data = buildPayload();
+    // Baixar JSON localmente
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'avaliacao_rob2.json';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Tentar envio para API se configurada
+    if (!apiBaseUrl) {
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const resp = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/evaluations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resultado_id: 1,
+          pre_consideracoes: data.pre_consideracoes,
+          dominios: data.dominios,
+        }),
+      });
+      console.log('submit status', resp.status);
+    } catch (e) {
+      console.error('submit failed', e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const renderSummary = () => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -124,6 +187,9 @@ export default function App() {
       <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Avaliação de Risco de Viés (RoB 2)</h1>
       <div style={{ marginBottom: '1rem' }}>
         <p>Etapa {step + 1} de {stepNames.length}: <strong>{stepNames[step]}</strong></p>
+        <p style={{ fontSize: '0.875rem', color: apiStatus === 'ok' ? 'green' : apiStatus === 'down' ? 'red' : '#555' }}>
+          API: {apiStatus}
+        </p>
       </div>
       <div style={{ border: '1px solid #ccc', padding: '1rem', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
         {step === 0 && renderPreConsiderations()}
@@ -137,7 +203,7 @@ export default function App() {
         {step < stepNames.length - 1 ? (
           <button onClick={nextStep}>Próximo</button>
         ) : (
-          <button disabled>Concluído</button>
+          <button onClick={handleConcluir} disabled={submitting}>Concluir</button>
         )}
       </div>
     </div>
