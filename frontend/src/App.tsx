@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { onAuthStateChange } from './firebase/auth';
+import LoginButton from './components/LoginButton';
+import ArticlesManager from './components/ArticlesManager';
 
 // Perguntas mínimas por domínio para o protótipo
 const perguntas: Record<number, { id: string; texto: string; respostas: string[] }[]> = {
@@ -44,6 +47,8 @@ const stepNames = [
 ];
 
 export default function App() {
+  const [user, setUser] = useState<any>(null);
+  const [currentView, setCurrentView] = useState<'login' | 'articles' | 'evaluation'>('login');
   const [step, setStep] = useState(0);
   const [preConsiderations, setPreConsiderations] = useState('');
   // Respostas por domínio: {1: {"1.1": "Y", ...}, 2: {...}, ...}
@@ -53,6 +58,16 @@ export default function App() {
   const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
 
   useEffect(() => {
+    // Monitorar estado de autenticação
+    const unsubscribe = onAuthStateChange((user) => {
+      setUser(user);
+      if (user) {
+        setCurrentView('articles');
+      } else {
+        setCurrentView('login');
+      }
+    });
+
     const ping = async () => {
       if (!apiBaseUrl) {
         setApiStatus('unknown');
@@ -66,6 +81,8 @@ export default function App() {
       }
     };
     ping();
+
+    return () => unsubscribe();
   }, [apiBaseUrl]);
 
   const nextStep = () => setStep((s) => Math.min(s + 1, stepNames.length - 1));
@@ -182,9 +199,53 @@ export default function App() {
     );
   };
 
-  return (
+  const renderHeader = () => (
+    <header className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center">
+            <h1 className="text-xl font-semibold text-gray-900">
+              RoB2 - Avaliação de Risco de Viés
+            </h1>
+          </div>
+          <div className="flex items-center space-x-4">
+            {user && (
+              <nav className="flex space-x-4">
+                <button
+                  onClick={() => setCurrentView('articles')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentView === 'articles'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Meus Artigos
+                </button>
+                <button
+                  onClick={() => setCurrentView('evaluation')}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentView === 'evaluation'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Avaliação RoB2
+                </button>
+              </nav>
+            )}
+            <LoginButton
+              onLoginSuccess={() => setCurrentView('articles')}
+              onLogout={() => setCurrentView('login')}
+            />
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+
+  const renderEvaluation = () => (
     <div style={{ margin: '0 auto', padding: '1rem', maxWidth: '720px' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Avaliação de Risco de Viés (RoB 2)</h1>
+      <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Avaliação de Risco de Viés (RoB 2)</h1>
       <div style={{ marginBottom: '1rem' }}>
         <p>Etapa {step + 1} de {stepNames.length}: <strong>{stepNames[step]}</strong></p>
         <p style={{ fontSize: '0.875rem', color: apiStatus === 'ok' ? 'green' : apiStatus === 'down' ? 'red' : '#555' }}>
@@ -206,6 +267,40 @@ export default function App() {
           <button onClick={handleConcluir} disabled={submitting}>Concluir</button>
         )}
       </div>
+    </div>
+  );
+
+  const renderLogin = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            RoB2 - Avaliação de Risco de Viés
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Faça login com sua conta Google para acessar sua biblioteca de artigos
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <LoginButton
+            onLoginSuccess={() => setCurrentView('articles')}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  if (currentView === 'login') {
+    return renderLogin();
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      <main className="py-6">
+        {currentView === 'articles' && <ArticlesManager />}
+        {currentView === 'evaluation' && renderEvaluation()}
+      </main>
     </div>
   );
 }

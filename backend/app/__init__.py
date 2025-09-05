@@ -6,4 +6,6 @@ __all__ = [
     "schemas",
     "auth",
     "rule_engine",
+    "firebase_auth",
+    "firebase_config",
 ]

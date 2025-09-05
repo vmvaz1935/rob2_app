@@ -11,7 +11,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
 
-from . import database, models, schemas, auth, rule_engine
+from fastapi.responses import StreamingResponse
+from . import database, models, schemas, auth, rule_engine, docx_generator, firebase_auth, firebase_config
 
 
 app = FastAPI(title="RoB2 API", openapi_url="/openapi.json", docs_url="/docs")
@@ -88,6 +89,7 @@ def create_or_update_evaluation(eval_in: schemas.EvaluationCreate, db: Session =
             tipo=dominio_in.tipo,
             respostas=dominio_in.respostas,
             comentarios=dominio_in.comentarios,
+            observacoes_itens=dominio_in.observacoes_itens,
             julgamento=julgamento,
             direcao=dominio_in.direcao or models.DirectionType.NA,
         )
@@ -121,10 +123,107 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(datab
     raise HTTPException(status_code=501, detail="Importação de Excel ainda não implementada")
 
 
-@app.get("/api/results/{result_id}/export", summary="Exporta avaliação para Excel ou DOCX")
-async def export_evaluation(result_id: int, format: str = "xlsx", db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # Endpoint de exportação. No protótipo não há implementação completa.
-    raise HTTPException(status_code=501, detail="Exportação ainda não implementada")
+@app.get("/api/results/{result_id}/export", summary="Exporta avaliação para PDF ou DOCX")
+async def export_evaluation(result_id: int, format: str = "pdf", db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    resultado = db.query(models.Result).get(result_id)
+    if not resultado or not resultado.avaliacao:
+        raise HTTPException(status_code=404, detail="Avaliação não encontrada")
+    projeto_id = resultado.estudo.projeto_id
+    auth.check_project_role(db, current_user, projeto_id, [models.RoleType.LEITOR.value, models.RoleType.EDITOR.value, models.RoleType.ADMIN.value])
+
+    avaliacao = resultado.avaliacao
+    if format.lower() == "pdf":
+        pdf_bytes = docx_generator.generate_pdf_report(avaliacao)
+        filename = f"avaliacao_resultado_{resultado.id}.pdf"
+        return StreamingResponse(iter([pdf_bytes]), media_type="application/pdf", headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        })
+    elif format.lower() == "docx":
+        # Ainda não implementado
+        raise HTTPException(status_code=501, detail="Exportação DOCX ainda não implementada")
+    else:
+        raise HTTPException(status_code=400, detail="Formato não suportado. Use 'pdf' ou 'docx'.")
+
+
+# Rotas para gerenciar artigos no Firestore
+@app.get("/api/articles", response_model=List[schemas.Article], summary="Lista artigos do usuário")
+def list_user_articles(current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)):
+    """Lista todos os artigos salvos pelo usuário autenticado."""
+    articles = firebase_config.get_user_articles(current_user.firebase_uid)
+    return articles
+
+
+@app.post("/api/articles", response_model=schemas.Article, status_code=201, summary="Salva um novo artigo")
+def create_article(
+    article: schemas.ArticleCreate,
+    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+):
+    """Salva um novo artigo para o usuário autenticado."""
+    article_data = article.dict()
+    article_id = firebase_config.save_user_article(current_user.firebase_uid, article_data)
+    
+    # Retornar o artigo criado
+    created_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
+    if not created_article:
+        raise HTTPException(status_code=500, detail="Erro ao recuperar artigo criado")
+    
+    return created_article
+
+
+@app.get("/api/articles/{article_id}", response_model=schemas.Article, summary="Obtém um artigo específico")
+def get_article(
+    article_id: str,
+    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+):
+    """Recupera um artigo específico do usuário autenticado."""
+    article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Artigo não encontrado")
+    return article
+
+
+@app.put("/api/articles/{article_id}", response_model=schemas.Article, summary="Atualiza um artigo")
+def update_article(
+    article_id: str,
+    article_update: schemas.ArticleUpdate,
+    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+):
+    """Atualiza um artigo existente do usuário autenticado."""
+    # Verificar se o artigo existe
+    existing_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
+    if not existing_article:
+        raise HTTPException(status_code=404, detail="Artigo não encontrado")
+    
+    # Atualizar apenas os campos fornecidos
+    update_data = {k: v for k, v in article_update.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar fornecido")
+    
+    success = firebase_config.update_user_article(current_user.firebase_uid, article_id, update_data)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erro ao atualizar artigo")
+    
+    # Retornar o artigo atualizado
+    updated_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
+    return updated_article
+
+
+@app.delete("/api/articles/{article_id}", summary="Remove um artigo")
+def delete_article(
+    article_id: str,
+    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+):
+    """Remove um artigo do usuário autenticado."""
+    # Verificar se o artigo existe
+    existing_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
+    if not existing_article:
+        raise HTTPException(status_code=404, detail="Artigo não encontrado")
+    
+    success = firebase_config.delete_user_article(current_user.firebase_uid, article_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erro ao remover artigo")
+    
+    return {"message": "Artigo removido com sucesso"}
 
 
 @app.get("/health", summary="Health check")

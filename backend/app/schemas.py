@@ -61,6 +61,7 @@ class DomainBase(BaseModel):
     tipo: int
     respostas: Dict[str, str]
     comentarios: Optional[str] = None
+    observacoes_itens: Optional[Dict[str, str]] = None
     direcao: Optional[str] = None
 
 
@@ -94,6 +95,50 @@ class Evaluation(EvaluationBase):
     dominios: List[Domain]  # override for Domain with id
     criado_por_id: Optional[int] = None
     criado_em: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+
+# Schemas para artigos no Firestore
+class ArticleBase(BaseModel):
+    titulo: str
+    autores: str
+    revista: Optional[str] = None
+    ano: Optional[int] = None
+    doi: Optional[str] = None
+    url: Optional[str] = None
+    resumo: Optional[str] = None
+    palavras_chave: Optional[List[str]] = None
+    tipo_estudo: Optional[str] = None
+    desenho: Optional[str] = None
+    desfechos: Optional[List[str]] = None
+    observacoes: Optional[str] = None
+
+
+class ArticleCreate(ArticleBase):
+    pass
+
+
+class ArticleUpdate(BaseModel):
+    titulo: Optional[str] = None
+    autores: Optional[str] = None
+    revista: Optional[str] = None
+    ano: Optional[int] = None
+    doi: Optional[str] = None
+    url: Optional[str] = None
+    resumo: Optional[str] = None
+    palavras_chave: Optional[List[str]] = None
+    tipo_estudo: Optional[str] = None
+    desenho: Optional[str] = None
+    desfechos: Optional[List[str]] = None
+    observacoes: Optional[str] = None
+
+
+class Article(ArticleBase):
+    id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

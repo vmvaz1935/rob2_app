@@ -129,6 +129,7 @@ class Domain(Base):
     tipo = Column(Integer, nullable=False)
     respostas = Column(JSON, nullable=False)  # dict {questionId: answer}
     comentarios = Column(Text, nullable=True)
+    observacoes_itens = Column(JSON, nullable=True)  # dict {questionId: observation}
     julgamento = Column(String(50), nullable=True)
     direcao = Column(Enum(DirectionType), nullable=True)
 
