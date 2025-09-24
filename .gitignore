@@ -1,0 +1,4 @@
+﻿__pycache__/
+*.pyc
+.pytest_cache/
+rob2-app-*-firebase-adminsdk-*.json
