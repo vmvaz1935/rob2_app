@@ -1,9 +1,11 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from 'firebase/auth';
 
 import { onAuthStateChange } from './firebase/auth';
 import LoginButton from './components/LoginButton';
 import ArticlesManager from './components/ArticlesManager';
+import Stepper from './components/Stepper';
+import AlertBanner from './components/AlertBanner';
 import { api, apiRootUrl, setDefaultAuthToken } from './services/api';
 
 interface DomainQuestion {
@@ -23,6 +25,11 @@ interface DomainDefinition {
 interface FetchedQuestions {
   dominios?: DomainDefinition[];
 }
+
+type AlertState = {
+  type: 'success' | 'info' | 'warning' | 'error';
+  message: string;
+} | null;
 
 const DEFAULT_STEP_NAMES = [
   'Pré-considerações',
@@ -52,7 +59,7 @@ const FALLBACK_DOMAINS: DomainDefinition[] = [
         id: '1.1',
         texto: 'A sequência de alocação foi verdadeiramente aleatória?',
         respostas: ['Y', 'PY', 'PN', 'N', 'NI', 'NA'],
-        dica: 'Detalhar método de geração (por exemplo, tabela aleatória, software)',
+        dica: 'Detalhar método de geração (por exemplo, tabela aleatória, software).',
       },
       {
         id: '1.2',
@@ -64,14 +71,14 @@ const FALLBACK_DOMAINS: DomainDefinition[] = [
         id: '1.3',
         texto: 'As características basais sugerem problemas na randomização?',
         respostas: ['Y', 'PY', 'PN', 'N', 'NI', 'NA'],
-        dica: 'Comparar grupos quanto a características clínicas relevantes',
+        dica: 'Comparar grupos quanto a características clínicas relevantes.',
       },
       {
         id: '1.4',
         texto: 'Se houve desequilíbrio basal, há justificativa plausível?',
         respostas: ['Y', 'PY', 'PN', 'N', 'NI', 'NA'],
         dependeDe: '1.3',
-        dica: 'Considerar exclusões pós-randomização ou erro de digitação',
+        dica: 'Considerar exclusões pós-randomização ou erro de digitação.',
       },
     ],
   },
@@ -88,14 +95,14 @@ const FALLBACK_DOMAINS: DomainDefinition[] = [
         id: '2.2',
         texto: 'Os participantes e profissionais estavam cegos quanto à intervenção?',
         respostas: ['Y', 'PY', 'PN', 'N', 'NI', 'NA'],
-        dica: 'Cegamento ou mascaramento',
+        dica: 'Cegamento ou mascaramento.',
       },
       {
         id: '2.3',
         texto: 'As análises seguiram a alocação inicial (intention-to-treat)?',
         respostas: ['Y', 'PY', 'PN', 'N', 'NI', 'NA'],
         dependeDe: '2.1',
-        dica: 'Verificar se participantes foram analisados no grupo original',
+        dica: 'Verificar se participantes foram analisados no grupo original.',
       },
     ],
   },
@@ -161,15 +168,6 @@ const FALLBACK_DOMAINS: DomainDefinition[] = [
   },
 ];
 
-const FALLBACK_DOMAIN_IDS = FALLBACK_DOMAINS.map((domain) => domain.dominio);
-
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-};
-
 const shouldDisableQuestion = (
   answers: Record<string, string> | undefined,
   question: DomainQuestion,
@@ -181,6 +179,13 @@ const shouldDisableQuestion = (
   return !dependencyValue || !['Y', 'PY'].includes(dependencyValue);
 };
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<'login' | 'articles' | 'evaluation'>('login');
@@ -189,8 +194,6 @@ export default function App() {
   const [respostas, setRespostas] = useState<Record<number, Record<string, string>>>({});
   const [apiStatus, setApiStatus] = useState<'unknown' | 'ok' | 'down'>('unknown');
   const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<DomainDefinition[]>(FALLBACK_DOMAINS);
@@ -198,15 +201,15 @@ export default function App() {
   const [stepNames, setStepNames] = useState<string[]>(DEFAULT_STEP_NAMES);
   const [apiToken, setApiToken] = useState(() => localStorage.getItem('rob2_api_token') ?? '');
   const [resultId, setResultId] = useState<number>(1);
+  const [alert, setAlert] = useState<AlertState>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange((firebaseUser) => {
       setUser(firebaseUser);
-      if (firebaseUser) {
-        setCurrentView('articles');
-      } else {
-        setCurrentView('login');
-      }
+      setCurrentView(firebaseUser ? 'articles' : 'login');
     });
     return () => unsubscribe();
   }, []);
@@ -238,27 +241,25 @@ export default function App() {
       setMetadataLoading(true);
       setMetadataError(null);
       try {
-        const [perguntasResponse, i18nResponse] = await Promise.all<[
-          { data: FetchedQuestions },
-          { data: any }
-        ]>([
+        const [questionsResponse, translationsResponse] = await Promise.all([
           api.get<FetchedQuestions>('/domains/questions'),
           api.get('/i18n/pt-BR').catch(() => ({ data: null })),
         ]);
 
-        if (perguntasResponse.data?.dominios?.length) {
-          setQuestions(perguntasResponse.data.dominios);
+        if (questionsResponse.data?.dominios?.length) {
+          setQuestions(questionsResponse.data.dominios);
         }
-        if (i18nResponse.data) {
-          if (Array.isArray(i18nResponse.data['wizard.steps'])) {
-            setStepNames(i18nResponse.data['wizard.steps']);
+        if (translationsResponse.data) {
+          const translations = translationsResponse.data as any;
+          if (Array.isArray(translations['wizard.steps'])) {
+            setStepNames(translations['wizard.steps']);
           }
-          if (i18nResponse.data.answers) {
-            setAnswerLabels(i18nResponse.data.answers);
+          if (translations.answers) {
+            setAnswerLabels(translations.answers);
           }
         }
       } catch (error) {
-        console.error('Não foi possível carregar perguntas da API', error);
+        console.error('Não foi possível carregar perguntas de domínio', error);
         setMetadataError('Não foi possível carregar as perguntas do servidor. Usando conteúdo local.');
       } finally {
         setMetadataLoading(false);
@@ -267,6 +268,12 @@ export default function App() {
 
     loadMetadata();
   }, []);
+
+  useEffect(() => {
+    if (headingRef.current) {
+      headingRef.current.focus({ preventScroll: false });
+    }
+  }, [step]);
 
   const domainMap = useMemo(() => {
     const map: Record<number, DomainDefinition> = {};
@@ -277,13 +284,13 @@ export default function App() {
   }, [questions]);
 
   const domainIds = useMemo(() => {
-    if (questions.length === 0) {
-      return FALLBACK_DOMAIN_IDS;
+    if (!questions.length) {
+      return FALLBACK_DOMAINS.map((domain) => domain.dominio);
     }
     return [...questions.map((domain) => domain.dominio)].sort((a, b) => a - b);
   }, [questions]);
 
-  const totalSteps = domainIds.length + 2; // pré + domínios + resumo
+  const totalSteps = domainIds.length + 2;
   const summaryStepIndex = totalSteps - 1;
 
   const computedStepNames = useMemo(() => {
@@ -291,17 +298,10 @@ export default function App() {
       return stepNames;
     }
     if (stepNames.length === DEFAULT_STEP_NAMES.length) {
-      return DEFAULT_STEP_NAMES;
+      return DEFAULT_STEP_NAMES.slice(0, totalSteps - 1).concat('Resumo');
     }
-    return DEFAULT_STEP_NAMES.slice(0, totalSteps - 1).concat('Resumo');
+    return DEFAULT_STEP_NAMES;
   }, [stepNames, totalSteps]);
-
-  const getStepLabel = (currentStep: number) => {
-    if (currentStep < computedStepNames.length) {
-      return computedStepNames[currentStep];
-    }
-    return computedStepNames[computedStepNames.length - 1];
-  };
 
   const isCurrentStepComplete = useMemo(() => {
     if (step === 0 || step === summaryStepIndex) {
@@ -319,16 +319,21 @@ export default function App() {
       }
       return Boolean(answersForDomain[question.id]);
     });
-  }, [step, summaryStepIndex, domainIds, domainMap, respostas]);
+  }, [domainIds, domainMap, respostas, step, summaryStepIndex]);
 
-  const nextStep = () => setStep((current) => Math.min(current + 1, summaryStepIndex));
-  const prevStep = () => setStep((current) => Math.max(current - 1, 0));
+  const handleNextStep = () => setStep((current) => Math.min(current + 1, summaryStepIndex));
+  const handlePreviousStep = () => setStep((current) => Math.max(current - 1, 0));
+  const handleStepSelect = (index: number) => {
+    if (index <= step) {
+      setStep(index);
+    }
+  };
 
   const handleChangeResposta = (dominio: number, perguntaId: string, valor: string) => {
-    setRespostas((prev) => {
-      const previousAnswers = prev[dominio] || {};
-      const updatedResponses: Record<string, string> = {
-        ...previousAnswers,
+    setRespostas((previous) => {
+      const currentAnswers = previous[dominio] || {};
+      const updatedAnswers: Record<string, string> = {
+        ...currentAnswers,
         [perguntaId]: valor,
       };
 
@@ -337,15 +342,15 @@ export default function App() {
         definition.itens
           .filter((item) => item.dependeDe === perguntaId)
           .forEach((dependentQuestion) => {
-            if (shouldDisableQuestion(updatedResponses, dependentQuestion)) {
-              updatedResponses[dependentQuestion.id] = 'NA';
+            if (shouldDisableQuestion(updatedAnswers, dependentQuestion)) {
+              updatedAnswers[dependentQuestion.id] = 'NA';
             }
           });
       }
 
       return {
-        ...prev,
-        [dominio]: updatedResponses,
+        ...previous,
+        [dominio]: updatedAnswers,
       };
     });
   };
@@ -366,8 +371,7 @@ export default function App() {
   };
 
   const handleConcluir = async () => {
-    setFeedback(null);
-    setFeedbackError(null);
+    setAlert(null);
     const data = buildPayload();
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -379,7 +383,7 @@ export default function App() {
     URL.revokeObjectURL(url);
 
     if (!apiToken) {
-      setFeedback('Arquivo exportado. Informe um token JWT para sincronizar com a API.');
+      setAlert({ type: 'info', message: 'Arquivo exportado. Informe um token JWT para sincronizar com a API.' });
       return;
     }
 
@@ -390,24 +394,34 @@ export default function App() {
         pre_consideracoes: data.pre_consideracoes,
         dominios: data.dominios,
       });
-      setFeedback('Avaliação sincronizada com sucesso.');
+      setAlert({ type: 'success', message: 'Avaliação sincronizada com sucesso.' });
     } catch (error) {
       console.error('Falha ao enviar avaliação', error);
-      setFeedbackError(`Não foi possível enviar a avaliação: ${getErrorMessage(error)}`);
+      setAlert({
+        type: 'error',
+        message: `Não foi possível enviar a avaliação: ${getErrorMessage(error)}`,
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleResetEvaluation = () => {
+    setPreConsiderations('');
+    setRespostas({});
+    setStep(0);
+    setShowResetConfirm(false);
+    setAlert({ type: 'success', message: 'Avaliação reiniciada.' });
+  };
+
   const renderPreConsiderations = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <label htmlFor="preConsid" style={{ fontWeight: 'bold' }}>Pré-considerações</label>
+    <div className="flex flex-col gap-2">
+      <label htmlFor="preConsid" className="font-semibold">Pré-considerações</label>
       <textarea
         id="preConsid"
-        style={{ width: '100%', minHeight: '8rem' }}
+        className="w-full min-h-[8rem] rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
         value={preConsiderations}
         onChange={(event) => setPreConsiderations(event.target.value)}
-        aria-label="Pré-considerações"
       />
     </div>
   );
@@ -421,8 +435,8 @@ export default function App() {
     const answersForDomain = respostas[dominioId] || {};
 
     return (
-      <fieldset style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <legend style={{ fontWeight: 'bold' }}>
+      <fieldset className="flex flex-col gap-4" aria-labelledby={`domain-${dominioId}-legend`}>
+        <legend id={`domain-${dominioId}-legend`} className="text-lg font-semibold text-gray-900">
           Domínio {dominioId} — {definition.descricao}
         </legend>
         {definition.itens.map((item) => {
@@ -430,23 +444,24 @@ export default function App() {
           const groupName = `${dominioId}-${item.id}`;
           const hintId = `${groupName}-hint`;
           return (
-            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div>
-                <span style={{ fontWeight: 600 }}>{item.id}.</span> {item.texto}
+            <div key={item.id} className="flex flex-col gap-2 rounded-md bg-white p-4 shadow-sm border border-gray-200">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-gray-900">{item.id}.</span>
+                <span className="text-gray-700">{item.texto}</span>
+                {item.dica && (
+                  <small id={hintId} className="text-sm text-gray-500">
+                    {item.dica}
+                  </small>
+                )}
+                {disabled && (
+                  <small className="text-sm text-amber-600">
+                    Esta pergunta será habilitada quando a questão {item.dependeDe} indicar preocupação.
+                  </small>
+                )}
               </div>
-              {item.dica && (
-                <small id={hintId} style={{ color: '#4b5563' }}>
-                  {item.dica}
-                </small>
-              )}
-              {disabled && (
-                <small style={{ color: '#b91c1c' }}>
-                  Esta pergunta será habilitada quando a questão {item.dependeDe} indicar preocupação.
-                </small>
-              )}
-              <div role="radiogroup" aria-labelledby={hintId} style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+              <div role="radiogroup" aria-labelledby={hintId} className="flex flex-wrap gap-4">
                 {item.respostas.map((option) => (
-                  <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <label key={option} className="inline-flex items-center gap-2 text-sm text-gray-700">
                     <input
                       type="radio"
                       name={groupName}
@@ -454,6 +469,7 @@ export default function App() {
                       checked={answersForDomain[item.id] === option}
                       onChange={(event) => handleChangeResposta(dominioId, item.id, event.target.value)}
                       disabled={disabled && option !== 'NA'}
+                      className="h-4 w-4"
                     />
                     {answerLabels[option] || option}
                   </label>
@@ -467,8 +483,8 @@ export default function App() {
   };
 
   const renderSummary = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Resumo das respostas</h2>
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold text-gray-900">Resumo das respostas</h2>
       <p><strong>Pré-considerações:</strong> {preConsiderations || '—'}</p>
       {domainIds.map((dominioId) => {
         const domain = domainMap[dominioId];
@@ -477,9 +493,9 @@ export default function App() {
           return null;
         }
         return (
-          <div key={dominioId} style={{ marginTop: '0.5rem' }}>
-            <h3 style={{ fontWeight: 'bold' }}>Domínio {dominioId} — {domain.descricao}</h3>
-            <ul>
+          <div key={dominioId} className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="font-semibold text-gray-900">Domínio {dominioId} — {domain.descricao}</h3>
+            <ul className="mt-2 space-y-1 text-sm text-gray-700">
               {domain.itens.map((item) => (
                 <li key={item.id}>
                   {item.id}: {answerLabels[domainAnswers[item.id]] || domainAnswers[item.id] || 'Não respondido'}
@@ -492,39 +508,152 @@ export default function App() {
     </div>
   );
 
-  const renderHeader = () => (
-    <header className="bg-white shadow-sm border-b">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 h-full py-4">
+  const renderEvaluation = () => (
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-4">
+      {apiStatus === 'down' && (
+        <AlertBanner
+          type="warning"
+          message="A API está indisponível no momento. Respostas serão salvas apenas localmente."
+        />
+      )}
+      {alert && (
+        <AlertBanner type={alert.type} message={alert.message} onClose={() => setAlert(null)} />
+      )}
+      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1
+                ref={headingRef}
+                tabIndex={-1}
+                className="text-xl font-semibold text-gray-900 focus:outline-none"
+              >
+                Avaliação de Risco de Viés (RoB 2)
+              </h1>
+              <p className="text-sm text-gray-600">Etapas guiadas com validação automática.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              >
+                Reiniciar avaliação
+              </button>
+            </div>
+          </div>
+
+          <Stepper
+            steps={computedStepNames}
+            currentStep={step}
+            onStepSelect={handleStepSelect}
+          />
+
+          {metadataLoading ? (
+            <div className="space-y-3" aria-live="polite">
+              <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
+              <div className="space-y-2">
+                {[...Array(3)].map((_, index) => (
+                  <div key={index} className="h-20 animate-pulse rounded bg-gray-100" />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {step === 0 && renderPreConsiderations()}
+              {step > 0 && step < summaryStepIndex && renderDomain(domainIds[step - 1])}
+              {step === summaryStepIndex && renderSummary()}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handlePreviousStep}
+              disabled={step === 0}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            {step < summaryStepIndex ? (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                disabled={!isCurrentStepComplete || metadataLoading}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                Próximo
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConcluir}
+                disabled={submitting}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-progress"
+              >
+                {submitting ? 'Enviando...' : 'Concluir'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-gray-900">Reiniciar avaliação</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Essa ação apagará todas as respostas registradas nesta sessão. Deseja continuar?
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleResetEvaluation}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Reiniciar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderLogin = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            RoB2 - Avaliação de Risco de Viés
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Faça login com sua conta Google para acessar sua biblioteca de artigos
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <LoginButton onLoginSuccess={() => setCurrentView('articles')} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white shadow-sm border-b">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">RoB2 - Avaliação de Risco de Viés</h1>
             <p className="text-sm text-gray-500">API: {apiStatus}</p>
           </div>
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            {user && currentView === 'evaluation' && (
-              <div className="flex flex-col gap-2">
-                <label className="text-sm text-gray-600">
-                  Token JWT do backend
-                  <input
-                    type="text"
-                    value={apiToken}
-                    onChange={(event) => setApiToken(event.target.value.trim())}
-                    placeholder="Cole o token Bearer"
-                    className="mt-1 block w-64 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </label>
-                <label className="text-sm text-gray-600">
-                  Resultado ID
-                  <input
-                    type="number"
-                    min={1}
-                    value={resultId}
-                    onChange={(event) => setResultId(Number(event.target.value) || 1)}
-                    className="mt-1 block w-24 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </label>
-              </div>
-            )}
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             {user && (
               <nav className="flex space-x-4">
                 <button
@@ -545,90 +674,41 @@ export default function App() {
                 </button>
               </nav>
             )}
+            {user && currentView === 'evaluation' && (
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <label className="flex flex-col text-gray-600">
+                  Token JWT do backend
+                  <input
+                    type="text"
+                    value={apiToken}
+                    onChange={(event) => setApiToken(event.target.value.trim())}
+                    placeholder="Cole o token Bearer"
+                    className="mt-1 w-64 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label className="flex flex-col text-gray-600">
+                  Resultado ID
+                  <input
+                    type="number"
+                    min={1}
+                    value={resultId}
+                    onChange={(event) => setResultId(Number(event.target.value) || 1)}
+                    className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              </div>
+            )}
             <LoginButton
               onLoginSuccess={() => setCurrentView('articles')}
               onLogout={() => setCurrentView('login')}
             />
           </div>
         </div>
-      </div>
-    </header>
-  );
+      </header>
 
-  const renderEvaluation = () => (
-    <div style={{ margin: '0 auto', padding: '1rem', maxWidth: '760px' }}>
-      <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Avaliação de Risco de Viés (RoB 2)</h1>
-      {metadataError && (
-        <div style={{ marginBottom: '1rem', padding: '0.75rem', border: '1px solid #fbbf24', background: '#fef3c7', borderRadius: '0.5rem' }}>
-          {metadataError}
-        </div>
-      )}
-      {metadataLoading ? (
-        <p>Carregando perguntas...</p>
-      ) : (
-        <>
-          <div style={{ marginBottom: '1rem' }}>
-            <p>
-              Etapa {step + 1} de {totalSteps}: <strong>{getStepLabel(step)}</strong>
-            </p>
-          </div>
-          <div style={{ border: '1px solid #d1d5db', padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#f9fafb' }}>
-            {step === 0 && renderPreConsiderations()}
-            {step > 0 && step < summaryStepIndex && renderDomain(domainIds[step - 1])}
-            {step === summaryStepIndex && renderSummary()}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.25rem' }}>
-            <button onClick={prevStep} disabled={step === 0}>
-              Anterior
-            </button>
-            {step < summaryStepIndex ? (
-              <button onClick={nextStep} disabled={!isCurrentStepComplete}>
-                Próximo
-              </button>
-            ) : (
-              <button onClick={handleConcluir} disabled={submitting}>
-                {submitting ? 'Enviando...' : 'Concluir'}
-              </button>
-            )}
-          </div>
-          {(feedback || feedbackError) && (
-            <div style={{ marginTop: '1rem' }} aria-live="polite">
-              {feedback && <p style={{ color: '#047857' }}>{feedback}</p>}
-              {feedbackError && <p style={{ color: '#b91c1c' }}>{feedbackError}</p>}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-
-  const renderLogin = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            RoB2 - Avaliação de Risco de Viés
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Faça login com sua conta Google para acessar sua biblioteca de artigos
-          </p>
-        </div>
-        <div className="flex justify-center">
-          <LoginButton onLoginSuccess={() => setCurrentView('articles')} />
-        </div>
-      </div>
-    </div>
-  );
-
-  if (currentView === 'login') {
-    return renderLogin();
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
       <main className="py-6">
-        {currentView === 'articles' && <ArticlesManager />}
+        {currentView === 'login' && renderLogin()}
+        {currentView === 'articles' && user && <ArticlesManager />}
         {currentView === 'evaluation' && renderEvaluation()}
       </main>
     </div>
