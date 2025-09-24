@@ -40,6 +40,7 @@ jobs:
         run: |
           psql -h localhost -U rob2_user -d rob2_db -f backend/migrations/001_create_tables.sql
           psql -h localhost -U rob2_user -d rob2_db -f backend/migrations/002_adjust_tables.sql
+          psql -h localhost -U rob2_user -d rob2_db -f backend/migrations/003_create_articles.sql
 
       - name: Run backend tests
         env:

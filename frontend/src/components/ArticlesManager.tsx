@@ -1,24 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Article, ArticleCreate, ArticleUpdate, articlesService } from '../services/articles';
 import ArticleList from './ArticleList';
 import ArticleForm from './ArticleForm';
+import AlertBanner from './AlertBanner';
 
-const ArticlesManager: React.FC = () => {
+interface ArticlesManagerProps {
+  apiToken: string;
+}
+
+const ArticlesManager: React.FC<ArticlesManagerProps> = ({ apiToken }) => {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const tokenAvailable = useMemo(() => Boolean(apiToken), [apiToken]);
+
   const loadArticles = async () => {
+    if (!tokenAvailable) {
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
       const data = await articlesService.getArticles();
       setArticles(data);
     } catch (err: any) {
-      setError(err.message || 'Erro ao carregar artigos');
+      const message = err?.response?.status === 401
+        ? 'Token inválido ou expirado. Gere um novo token JWT no backend.'
+        : err?.message ?? 'Erro ao carregar artigos';
+      setError(message);
       console.error('Erro ao carregar artigos:', err);
     } finally {
       setIsLoading(false);
@@ -26,18 +39,26 @@ const ArticlesManager: React.FC = () => {
   };
 
   useEffect(() => {
-    loadArticles();
-  }, []);
+    setArticles([]);
+    setShowForm(false);
+    if (tokenAvailable) {
+      loadArticles();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokenAvailable]);
 
   const handleCreateArticle = async (data: ArticleCreate) => {
     try {
       setIsSubmitting(true);
       setError(null);
       const newArticle = await articlesService.createArticle(data);
-      setArticles(prev => [newArticle, ...prev]);
+      setArticles((prev) => [newArticle, ...prev]);
       setShowForm(false);
     } catch (err: any) {
-      setError(err.message || 'Erro ao criar artigo');
+      const message = err?.response?.status === 401
+        ? 'Token inválido ou sem permissão para criar artigos.'
+        : err?.message ?? 'Erro ao criar artigo';
+      setError(message);
       console.error('Erro ao criar artigo:', err);
     } finally {
       setIsSubmitting(false);
@@ -51,26 +72,32 @@ const ArticlesManager: React.FC = () => {
       setIsSubmitting(true);
       setError(null);
       const updatedArticle = await articlesService.updateArticle(editingArticle.id, data);
-      setArticles(prev => prev.map(article => 
+      setArticles((prev) => prev.map((article) => (
         article.id === editingArticle.id ? updatedArticle : article
-      ));
+      )));
       setEditingArticle(undefined);
       setShowForm(false);
     } catch (err: any) {
-      setError(err.message || 'Erro ao atualizar artigo');
+      const message = err?.response?.status === 401
+        ? 'Token inválido ou sem permissão para atualizar artigos.'
+        : err?.message ?? 'Erro ao atualizar artigo';
+      setError(message);
       console.error('Erro ao atualizar artigo:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteArticle = async (id: string) => {
+  const handleDeleteArticle = async (id: number) => {
     try {
       setError(null);
       await articlesService.deleteArticle(id);
-      setArticles(prev => prev.filter(article => article.id !== id));
+      setArticles((prev) => prev.filter((article) => article.id !== id));
     } catch (err: any) {
-      setError(err.message || 'Erro ao deletar artigo');
+      const message = err?.response?.status === 401
+        ? 'Token inválido ou sem permissão para remover artigos.'
+        : err?.message ?? 'Erro ao deletar artigo';
+      setError(message);
       console.error('Erro ao deletar artigo:', err);
     }
   };
@@ -93,6 +120,20 @@ const ArticlesManager: React.FC = () => {
     }
   };
 
+  if (!tokenAvailable) {
+    return (
+      <div className="mx-auto mt-6 max-w-3xl space-y-4 px-4">
+        <AlertBanner
+          type="info"
+          message="Para gerenciar artigos, gere um token JWT no backend (rota /api/auth/login) e informe-o no cabeçalho da aplicação."
+        />
+        <p className="text-sm text-gray-600">
+          Os artigos agora são armazenados diretamente na base PostgreSQL do sistema RoB2. Cada token só enxerga os registros do usuário autenticado.
+        </p>
+      </div>
+    );
+  }
+
   if (showForm) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -101,14 +142,12 @@ const ArticlesManager: React.FC = () => {
             {editingArticle ? 'Editar Artigo' : 'Novo Artigo'}
           </h2>
           <p className="text-gray-600 mt-1">
-            {editingArticle ? 'Atualize as informações do artigo' : 'Adicione um novo artigo à sua biblioteca'}
+            {editingArticle ? 'Atualize as informações do artigo' : 'Adicione um novo artigo à biblioteca relacional'}
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-800">{error}</p>
-          </div>
+          <AlertBanner type="error" message={error} onClose={() => setError(null)} />
         )}
 
         <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -124,17 +163,17 @@ const ArticlesManager: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-6xl mx-auto p-6 space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Meus Artigos</h1>
           <p className="text-gray-600 mt-1">
-            Gerencie sua biblioteca de artigos científicos
+            Os registros são salvos em PostgreSQL e associados ao seu usuário do RoB2.
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -144,22 +183,14 @@ const ArticlesManager: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-red-800">{error}</p>
-          <button
-            onClick={loadArticles}
-            className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-          >
-            Tentar novamente
-          </button>
-        </div>
+        <AlertBanner type="error" message={error} onClose={() => setError(null)} />
       )}
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <ArticleList
           articles={articles}
           onEdit={handleEditArticle}
-          onDelete={handleDeleteArticle}
+          onDelete={(id) => handleDeleteArticle(id)}
           isLoading={isLoading}
         />
       </div>

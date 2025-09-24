@@ -44,7 +44,9 @@ class User(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
 
     projetos = relationship("Project", secondary="membros_projeto", back_populates="usuarios", overlaps="membros")
+    projetos = relationship("Project", secondary="membros_projeto", back_populates="usuarios", overlaps="membros")
     auditorias = relationship("Audit", back_populates="usuario")
+    artigos = relationship("Article", back_populates="usuario", cascade="all, delete-orphan")
 
 
 class Project(Base):
@@ -132,6 +134,29 @@ class Domain(Base):
     direcao = Column(Enum(DirectionType))
 
     avaliacao = relationship("Evaluation", back_populates="dominios")
+
+
+class Article(Base):
+    __tablename__ = "artigos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    titulo = Column(String(255), nullable=False)
+    autores = Column(String(255), nullable=False)
+    revista = Column(String(255))
+    ano = Column(Integer)
+    doi = Column(String(100))
+    url = Column(String(255))
+    resumo = Column(Text)
+    palavras_chave = Column(JSON)
+    tipo_estudo = Column(String(100))
+    desenho = Column(String(100))
+    desfechos = Column(JSON)
+    observacoes = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    usuario = relationship("User", back_populates="artigos")
 
 
 class Audit(Base):

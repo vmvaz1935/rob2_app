@@ -1,158 +1,69 @@
 # 🚀 EXECUTE AGORA - Guia de Configuração Completa
 
-## 📋 **Checklist de Execução**
+## ✅ Checklist de Execução
 
-### **1. Baixar Chave Privada do Firebase Admin SDK** ⚠️ **OBRIGATÓRIO**
+1. **Configurar Banco de Dados**
+   - Suba um PostgreSQL local (`docker-compose up db` na pasta `infra/`, por exemplo).
+   - Garanta que as variáveis `DATABASE_URL`, `SECRET_KEY` estejam definidas (veja `backend/env.example`).
+2. **Aplicar migrações**
+   ```bash
+   cd backend
+   psql postgresql://rob2_user:rob2_pass@localhost/rob2_db -f migrations/001_create_tables.sql
+   psql postgresql://rob2_user:rob2_pass@localhost/rob2_db -f migrations/002_adjust_tables.sql
+   psql postgresql://rob2_user:rob2_pass@localhost/rob2_db -f migrations/003_create_articles.sql
+   ```
+3. **Criar usuário inicial** (exemplo via psql):
+   ```sql
+   INSERT INTO usuarios (nome, email, senha_hash)
+   VALUES ('Admin', 'admin@example.com', '$2b$12$u01DqCYC5sO2HYBK4SlMQeY4RyPgjDyqzGJlQuMPjpiKFFitvolG6');
+   -- senha: admin123
+   ```
+4. **Iniciar backend**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   python start_server.py
+   ```
+5. **Iniciar frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
 
-1. **Acesse**: https://console.firebase.google.com/
-2. **Selecione**: Projeto `rob2-app-6421e`
-3. **Vá para**: Configurações (ícone ⚙️) > Aba "Contas de serviço"
-4. **Clique**: "Gerar nova chave privada"
-5. **Salve como**: `backend/firebase-credentials.json`
-6. **⚠️ IMPORTANTE**: Use o Firebase Admin SDK, não o sistema legado de secrets!
+## 🔐 Autenticação
 
-### **2. Configurar Backend**
+O login agora é feito com JWT emitido pelo próprio backend:
 
 ```bash
-# Navegar para o backend
+curl -X POST http://localhost:8000/api/auth/login   -d "username=admin@example.com"   -d "password=admin123"
+```
+
+Copie o `access_token` retornado e cole nos campos "Token JWT" da interface web. O token será usado para sincronizar avaliações e a biblioteca de artigos.
+
+## 📚 Armazenamento de Artigos
+
+- Os artigos ficam na tabela `artigos`, vinculados ao usuário (`usuario_id`).
+- As rotas disponíveis são:
+  - `GET /api/articles`
+  - `POST /api/articles`
+  - `GET /api/articles/{id}`
+  - `PUT /api/articles/{id}`
+  - `DELETE /api/articles/{id}`
+
+Todos requerem o header `Authorization: Bearer <token>`.
+
+## 🧪 Testes rápidos
+
+```bash
 cd backend
-
-# Instalar dependências
-pip install -r requirements.txt
-
-# Configurar Firebase Admin SDK
-python setup_firebase.py
-
-# Testar configuração
-python test_firebase_admin.py
-
-# Iniciar servidor
-python start_server.py
+python -m pytest -q backend/tests
 ```
 
-### **3. Configurar Frontend** (em outro terminal)
+## 🧭 Próximos passos
 
-```bash
-# Navegar para o frontend
-cd frontend
+1. Ajuste as variáveis de ambiente para produção (SECRET_KEY forte, banco gerenciado etc.).
+2. Defina usuários reais via script ou painel administrativo.
+3. Gere tokens JWT para cada membro da equipe e compartilhe pelo canal seguro.
 
-# Instalar dependências e iniciar
-node start_dev.js
-```
-
-### **4. Testar Integração**
-
-```bash
-# Na raiz do projeto
-python test_integration.py
-```
-
-## 🎯 **Resultado Esperado**
-
-Após executar todos os passos, você deve ver:
-
-```
-🧪 Teste de Integração - Sistema RoB2
-==================================================
-🔍 Testando backend...
-✅ Backend está rodando
-🔍 Testando frontend...
-✅ Frontend está rodando
-🔍 Testando configuração Firebase...
-✅ Autenticação Firebase configurada (endpoint protegido)
-🔍 Testando documentação da API...
-✅ Documentação da API acessível
-
-==================================================
-📊 RESUMO DOS TESTES
-==================================================
-Backend Health: ✅ PASSOU
-Frontend Health: ✅ PASSOU
-Firebase Auth: ✅ PASSOU
-API Documentation: ✅ PASSOU
-
-🎯 Resultado: 4/4 testes passaram
-🎉 Todos os testes passaram! Sistema está funcionando.
-```
-
-## 🌐 **URLs de Acesso**
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **Documentação**: http://localhost:8000/docs
-- **Health Check**: http://localhost:8000/health
-
-## 🔐 **Teste de Login**
-
-1. **Acesse**: http://localhost:3000
-2. **Clique**: "Entrar com Google"
-3. **Autorize**: Acesso à sua conta Google
-4. **Resultado**: Deve redirecionar para a página de artigos
-
-## 📝 **Teste de Criação de Artigo**
-
-1. **Após login**, clique em "Novo Artigo"
-2. **Preencha**:
-   - Título: "Teste de Integração"
-   - Autores: "Seu Nome"
-   - Revista: "Revista Teste"
-   - Ano: 2024
-3. **Clique**: "Salvar"
-4. **Resultado**: Artigo deve aparecer na lista
-
-## 🔍 **Verificar no Firebase Console**
-
-1. **Acesse**: https://console.firebase.google.com/
-2. **Vá para**: Firestore Database
-3. **Verifique**: Coleção `users/{seu-uid}/articles`
-
-## 🚨 **Solução de Problemas**
-
-### **Erro: "firebase-credentials.json não encontrado"**
-```bash
-# Execute novamente o setup
-cd backend
-python setup_firebase.py
-```
-
-### **Erro: "Backend não está acessível"**
-```bash
-# Verifique se o backend está rodando
-cd backend
-python start_server.py
-```
-
-### **Erro: "Frontend não está acessível"**
-```bash
-# Verifique se o frontend está rodando
-cd frontend
-node start_dev.js
-```
-
-### **Erro de CORS**
-- Verifique se o backend está em `http://localhost:8000`
-- Verifique se o frontend está em `http://localhost:3000`
-
-### **Erro de Autenticação**
-- Verifique se o domínio `localhost` está autorizado no Firebase
-- Verifique se o Google Auth está habilitado
-
-## 📞 **Suporte**
-
-Se encontrar problemas:
-
-1. **Execute**: `python test_integration.py` para diagnóstico
-2. **Verifique**: Logs dos serviços
-3. **Confirme**: Credenciais do Firebase estão corretas
-
-## 🎉 **Próximos Passos Após Sucesso**
-
-1. ✅ **Sistema funcionando**
-2. 🔄 **Testar todas as funcionalidades**
-3. 🔄 **Adicionar mais artigos**
-4. 🔄 **Testar avaliação RoB2**
-5. 🔄 **Fazer deploy (opcional)**
-
----
-
-**⚡ EXECUTE AGORA**: Siga os passos acima para ter o sistema funcionando em poucos minutos!
+Bom trabalho e boas avaliações com o RoB2! 🎯

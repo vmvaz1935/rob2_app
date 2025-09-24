@@ -1,8 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { User } from 'firebase/auth';
 
-import { onAuthStateChange } from './firebase/auth';
-import LoginButton from './components/LoginButton';
 import ArticlesManager from './components/ArticlesManager';
 import Stepper from './components/Stepper';
 import AlertBanner from './components/AlertBanner';
@@ -30,6 +27,8 @@ type AlertState = {
   type: 'success' | 'info' | 'warning' | 'error';
   message: string;
 } | null;
+
+type Section = 'evaluation' | 'articles';
 
 const DEFAULT_STEP_NAMES = [
   'Pré-considerações',
@@ -186,9 +185,8 @@ const getErrorMessage = (error: unknown) => {
   return String(error);
 };
 
-export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<'login' | 'articles' | 'evaluation'>('login');
+const App: React.FC = () => {
+  const [activeSection, setActiveSection] = useState<Section>('evaluation');
   const [step, setStep] = useState(0);
   const [preConsiderations, setPreConsiderations] = useState('');
   const [respostas, setRespostas] = useState<Record<number, Record<string, string>>>({});
@@ -205,14 +203,6 @@ export default function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const headingRef = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChange((firebaseUser) => {
-      setUser(firebaseUser);
-      setCurrentView(firebaseUser ? 'articles' : 'login');
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     setDefaultAuthToken(apiToken || null);
@@ -513,7 +503,7 @@ export default function App() {
       {apiStatus === 'down' && (
         <AlertBanner
           type="warning"
-          message="A API está indisponível no momento. Respostas serão salvas apenas localmente."
+          message="A API está indisponível no momento. As respostas serão armazenadas apenas localmente."
         />
       )}
       {alert && (
@@ -543,6 +533,11 @@ export default function App() {
             </div>
           </div>
 
+          <div className="space-y-3 rounded-md border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+            <p><strong>Como autenticar:</strong> utilize a rota <code>/api/auth/login</code> para gerar um token JWT e cole-o no campo abaixo. O token será usado também na biblioteca de artigos.</p>
+            <p><strong>ID do resultado:</strong> informe o identificador do resultado já cadastrado no backend para sincronizar esta avaliação.</p>
+          </div>
+
           <Stepper
             steps={computedStepNames}
             currentStep={step}
@@ -565,6 +560,29 @@ export default function App() {
               {step === summaryStepIndex && renderSummary()}
             </div>
           )}
+
+          <div className="flex flex-col gap-4 rounded-md border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
+            <label className="flex flex-col">
+              Token JWT do backend
+              <input
+                type="text"
+                value={apiToken}
+                onChange={(event) => setApiToken(event.target.value.trim())}
+                placeholder="Cole o token Bearer"
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+            <label className="flex flex-col w-36">
+              Resultado ID
+              <input
+                type="number"
+                min={1}
+                value={resultId}
+                onChange={(event) => setResultId(Number(event.target.value) || 1)}
+                className="mt-1 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+          </div>
 
           <div className="flex items-center justify-between">
             <button
@@ -627,24 +645,6 @@ export default function App() {
     </div>
   );
 
-  const renderLogin = () => (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            RoB2 - Avaliação de Risco de Viés
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Faça login com sua conta Google para acessar sua biblioteca de artigos
-          </p>
-        </div>
-        <div className="flex justify-center">
-          <LoginButton onLoginSuccess={() => setCurrentView('articles')} />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
@@ -653,64 +653,35 @@ export default function App() {
             <h1 className="text-xl font-semibold text-gray-900">RoB2 - Avaliação de Risco de Viés</h1>
             <p className="text-sm text-gray-500">API: {apiStatus}</p>
           </div>
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            {user && (
-              <nav className="flex space-x-4">
-                <button
-                  onClick={() => setCurrentView('articles')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    currentView === 'articles' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Meus Artigos
-                </button>
-                <button
-                  onClick={() => setCurrentView('evaluation')}
-                  className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    currentView === 'evaluation' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Avaliação RoB2
-                </button>
-              </nav>
-            )}
-            {user && currentView === 'evaluation' && (
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <label className="flex flex-col text-gray-600">
-                  Token JWT do backend
-                  <input
-                    type="text"
-                    value={apiToken}
-                    onChange={(event) => setApiToken(event.target.value.trim())}
-                    placeholder="Cole o token Bearer"
-                    className="mt-1 w-64 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-                <label className="flex flex-col text-gray-600">
-                  Resultado ID
-                  <input
-                    type="number"
-                    min={1}
-                    value={resultId}
-                    onChange={(event) => setResultId(Number(event.target.value) || 1)}
-                    className="mt-1 w-24 rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  />
-                </label>
-              </div>
-            )}
-            <LoginButton
-              onLoginSuccess={() => setCurrentView('articles')}
-              onLogout={() => setCurrentView('login')}
-            />
-          </div>
+          <nav className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveSection('evaluation')}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                activeSection === 'evaluation' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Formulário RoB2
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('articles')}
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                activeSection === 'articles' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Biblioteca de artigos
+            </button>
+          </nav>
         </div>
       </header>
 
       <main className="py-6">
-        {currentView === 'login' && renderLogin()}
-        {currentView === 'articles' && user && <ArticlesManager />}
-        {currentView === 'evaluation' && renderEvaluation()}
+        {activeSection === 'evaluation' && renderEvaluation()}
+        {activeSection === 'articles' && <ArticlesManager apiToken={apiToken} />}
       </main>
     </div>
   );
-}
+};
+
+export default App;

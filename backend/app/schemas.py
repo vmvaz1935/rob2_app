@@ -102,7 +102,7 @@ class Evaluation(EvaluationBase):
         orm_mode = True
 
 
-# Schemas para artigos no Firestore
+# Schemas para artigos armazenados no banco relacional
 class ArticleBase(BaseModel):
     titulo: str
     autores: str
@@ -138,7 +138,8 @@ class ArticleUpdate(BaseModel):
 
 
 class Article(ArticleBase):
-    id: str
+    id: int
+    usuario_id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

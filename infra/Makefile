@@ -17,8 +17,10 @@ dev-down:
 	docker-compose -f infra/docker-compose.yml down
 
 migrate:
-	# Executa o script de migração inicial dentro do banco
+	# Executa os scripts de migração dentro do banco
 	docker-compose -f infra/docker-compose.yml exec -T db psql -U $$POSTGRES_USER -d $$POSTGRES_DB -f /docker-entrypoint-initdb.d/001_create_tables.sql
+	docker-compose -f infra/docker-compose.yml exec -T db psql -U $$POSTGRES_USER -d $$POSTGRES_DB -f /docker-entrypoint-initdb.d/002_adjust_tables.sql
+	docker-compose -f infra/docker-compose.yml exec -T db psql -U $$POSTGRES_USER -d $$POSTGRES_DB -f /docker-entrypoint-initdb.d/003_create_articles.sql
 
 test:
 	pytest -q

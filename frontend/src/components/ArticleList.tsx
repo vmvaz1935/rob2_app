@@ -4,7 +4,7 @@ import { Article } from '../services/articles';
 interface ArticleListProps {
   articles: Article[];
   onEdit: (article: Article) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
   isLoading?: boolean;
 }
 
@@ -14,9 +14,9 @@ const ArticleList: React.FC<ArticleListProps> = ({
   onDelete, 
   isLoading = false 
 }) => {
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (id: number) => {
     if (deleteConfirm === id) {
       onDelete(id);
       setDeleteConfirm(null);

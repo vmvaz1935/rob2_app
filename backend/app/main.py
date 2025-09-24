@@ -24,8 +24,8 @@ from . import (
     rule_engine,
     docx_generator,
     import_export,
-    firebase_auth,
-    firebase_config,
+
+
 )
 
 
@@ -243,85 +243,82 @@ async def export_evaluation(result_id: int, format: str = "pdf", db: Session = D
         raise HTTPException(status_code=400, detail="Formato não suportado. Use 'pdf', 'docx' ou 'xlsx'.")
 
 
-# Rotas para gerenciar artigos no Firestore
+# Rotas para gerenciar artigos armazenados na base relacional
 @app.get("/api/articles", response_model=List[schemas.Article], summary="Lista artigos do usuário")
-def list_user_articles(current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)):
-    """Lista todos os artigos salvos pelo usuário autenticado."""
-    articles = firebase_config.get_user_articles(current_user.firebase_uid)
-    return articles
+def list_user_articles(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    artigos = (
+        db.query(models.Article)
+        .filter(models.Article.usuario_id == current_user.id)
+        .order_by(models.Article.created_at.desc())
+        .all()
+    )
+    return artigos
 
 
 @app.post("/api/articles", response_model=schemas.Article, status_code=201, summary="Salva um novo artigo")
 def create_article(
     article: schemas.ArticleCreate,
-    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    """Salva um novo artigo para o usuário autenticado."""
-    article_data = article.dict()
-    article_id = firebase_config.save_user_article(current_user.firebase_uid, article_data)
-    
-    # Retornar o artigo criado
-    created_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
-    if not created_article:
-        raise HTTPException(status_code=500, detail="Erro ao recuperar artigo criado")
-    
-    return created_article
+    novo_artigo = models.Article(usuario_id=current_user.id, **article.dict())
+    db.add(novo_artigo)
+    db.commit()
+    db.refresh(novo_artigo)
+    return novo_artigo
 
 
 @app.get("/api/articles/{article_id}", response_model=schemas.Article, summary="Obtém um artigo específico")
 def get_article(
-    article_id: str,
-    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+    article_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    """Recupera um artigo específico do usuário autenticado."""
-    article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
-    if not article:
+    artigo = db.get(models.Article, article_id)
+    if not artigo or artigo.usuario_id != current_user.id:
         raise HTTPException(status_code=404, detail="Artigo não encontrado")
-    return article
+    return artigo
 
 
 @app.put("/api/articles/{article_id}", response_model=schemas.Article, summary="Atualiza um artigo")
 def update_article(
-    article_id: str,
-    article_update: schemas.ArticleUpdate,
-    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+    article_id: int,
+    artigo_update: schemas.ArticleUpdate,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    """Atualiza um artigo existente do usuário autenticado."""
-    # Verificar se o artigo existe
-    existing_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
-    if not existing_article:
+    artigo = db.get(models.Article, article_id)
+    if not artigo or artigo.usuario_id != current_user.id:
         raise HTTPException(status_code=404, detail="Artigo não encontrado")
-    
-    # Atualizar apenas os campos fornecidos
-    update_data = {k: v for k, v in article_update.dict().items() if v is not None}
+
+    update_data = {k: v for k, v in artigo_update.dict().items() if v is not None}
     if not update_data:
-        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar fornecido")
-    
-    success = firebase_config.update_user_article(current_user.firebase_uid, article_id, update_data)
-    if not success:
-        raise HTTPException(status_code=500, detail="Erro ao atualizar artigo")
-    
-    # Retornar o artigo atualizado
-    updated_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
-    return updated_article
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar foi enviado")
+
+    for field, value in update_data.items():
+        setattr(artigo, field, value)
+
+    db.commit()
+    db.refresh(artigo)
+    return artigo
 
 
 @app.delete("/api/articles/{article_id}", summary="Remove um artigo")
 def delete_article(
-    article_id: str,
-    current_user: firebase_auth.FirebaseUser = Depends(firebase_auth.get_current_firebase_user)
+    article_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
 ):
-    """Remove um artigo do usuário autenticado."""
-    # Verificar se o artigo existe
-    existing_article = firebase_config.get_user_article(current_user.firebase_uid, article_id)
-    if not existing_article:
+    artigo = db.get(models.Article, article_id)
+    if not artigo or artigo.usuario_id != current_user.id:
         raise HTTPException(status_code=404, detail="Artigo não encontrado")
-    
-    success = firebase_config.delete_user_article(current_user.firebase_uid, article_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Erro ao remover artigo")
-    
+
+    db.delete(artigo)
+    db.commit()
     return {"message": "Artigo removido com sucesso"}
+
+
+
 
 
 @app.get("/health", summary="Health check")

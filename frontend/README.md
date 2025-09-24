@@ -1,15 +1,15 @@
 # Frontend RoB2 - Interface de Usuário
 
-Interface React para o sistema de avaliação de risco de viés RoB2, com autenticação Firebase e gerenciamento de artigos.
+Interface React para o sistema de avaliação de risco de viés RoB2. O armazenamento de artigos agora acontece diretamente na base PostgreSQL do backend, utilizando autenticação JWT emitida pela própria API.
 
-## 🚀 Funcionalidades
+## 🧩 Funcionalidades
 
-- **Autenticação Google**: Login seguro via Firebase Auth
-- **Gerenciamento de Artigos**: Salvar, editar e organizar artigos científicos
-- **Avaliação RoB2**: Interface para avaliação de risco de viés
+- **Sincronização por token JWT**: Utilize o endpoint `/api/auth/login` para gerar tokens
+- **Gerenciamento de Artigos**: Salvar, editar e organizar artigos científicos na base relacional
+- **Avaliação RoB2**: Interface guiada para avaliação de risco de viés
 - **Interface Responsiva**: Design moderno com Tailwind CSS
 
-## 📦 Instalação
+## 🚀 Instalação
 
 ### 1. Instalar Dependências
 ```bash
@@ -28,113 +28,48 @@ VITE_API_BASE_URL=http://localhost:8000
 npm run dev
 ```
 
-A aplicação estará disponível em `http://localhost:3000`
+A aplicação estará disponível em `http://localhost:3000`.
 
-## 🔧 Configuração do Firebase
+## 🚀 Como Usar
 
-O Firebase já está configurado com as credenciais do projeto `rob2-app-6421e`. Se precisar alterar:
-
-1. Edite `src/firebase/config.ts`
-2. Atualize as credenciais do Firebase
-3. Configure as regras de segurança no console do Firebase
-
-## 📱 Como Usar
-
-### 1. Login
-- Acesse a aplicação
-- Clique em "Entrar com Google"
-- Autorize o acesso à sua conta Google
+### 1. Gerar token JWT
+- Faça uma requisição `POST /api/auth/login` informando e-mail e senha de um usuário válido
+- Copie o campo `access_token` retornado pela API
+- Cole o token no cabeçalho "Token JWT" exibido na interface (o mesmo token é usado para avaliação e artigos)
 
 ### 2. Gerenciar Artigos
 - **Adicionar**: Clique em "Novo Artigo" e preencha os dados
 - **Editar**: Clique em "Editar" em qualquer artigo
 - **Excluir**: Clique em "Excluir" e confirme
-- **Visualizar**: Todos os artigos são exibidos em cards organizados
+- **Visualizar**: Os artigos são exibidos em cards com detalhes e tags
 
 ### 3. Avaliação RoB2
-- Navegue para "Avaliação RoB2" no menu
+- Navegue para "Formulário RoB2" no menu
 - Preencha as pré-considerações
 - Responda as perguntas de cada domínio
-- Visualize o resumo final
+- Visualize o resumo final e envie para o backend
 
-## 🏗️ Estrutura do Projeto
+## 🗂️ Estrutura do Projeto
 
 ```
 frontend/src/
-├── components/          # Componentes React
-│   ├── LoginButton.tsx  # Botão de login Google
-│   ├── ArticleForm.tsx  # Formulário de artigos
-│   ├── ArticleList.tsx  # Lista de artigos
-│   └── ArticlesManager.tsx # Gerenciador principal
-├── firebase/           # Configuração Firebase
-│   ├── config.ts       # Configuração do Firebase
-│   └── auth.ts         # Serviços de autenticação
+├── components/          # Componentes React compartilhados
+│   ├── AlertBanner.tsx
+│   ├── ArticleForm.tsx
+│   ├── ArticleList.tsx
+│   ├── ArticlesManager.tsx
+│   └── Stepper.tsx
 ├── services/           # Serviços da API
-│   └── articles.ts     # API de artigos
-├── App.tsx            # Componente principal
-└── main.tsx           # Ponto de entrada
+│   ├── api.ts
+│   └── articles.ts
+├── App.tsx             # Componente principal
+└── main.tsx            # Ponto de entrada
 ```
 
 ## 🎨 Estilos
 
 O projeto usa **Tailwind CSS** para estilização:
-- Classes utilitárias para layout e design
-- Componentes responsivos
-- Tema consistente em toda a aplicação
-
-## 🔌 Integração com Backend
-
-A aplicação se conecta ao backend via:
-- **Autenticação**: Tokens Firebase para autenticação
-- **API REST**: Endpoints para CRUD de artigos
-- **CORS**: Configurado para desenvolvimento local
-
-## 📋 Scripts Disponíveis
-
-```bash
-npm run dev      # Servidor de desenvolvimento
-npm run build    # Build para produção
-npm run preview  # Preview do build
-```
-
-## 🐛 Troubleshooting
-
-### Erro de CORS
-- Verifique se o backend está rodando em `http://localhost:8000`
-- Confirme se CORS está habilitado no backend
-
-### Erro de Autenticação
-- Verifique se o Firebase está configurado corretamente
-- Confirme se o domínio está autorizado no console Firebase
-
-### Erro de API
-- Verifique se o backend está rodando
-- Confirme se a variável `VITE_API_BASE_URL` está correta
-
-## 🚀 Deploy
-
-### Vercel (Recomendado)
 ```bash
 npm run build
-# Faça upload da pasta dist/ para Vercel
 ```
-
-### Netlify
-```bash
-npm run build
-# Faça upload da pasta dist/ para Netlify
-```
-
-### Docker
-```bash
-# Use o Dockerfile existente
-docker build -t rob2-frontend .
-docker run -p 3000:3000 rob2-frontend
-```
-
-## 📝 Notas de Desenvolvimento
-
-- **TypeScript**: Tipagem estática para melhor desenvolvimento
-- **React Hooks**: Gerenciamento de estado moderno
-- **Firebase SDK**: Integração nativa com Firebase
-- **Responsive Design**: Funciona em desktop e mobile
+O build gera CSS otimizado e pronto para produção.

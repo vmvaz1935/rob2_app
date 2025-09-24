@@ -1,8 +1,7 @@
-﻿import { getAuthToken } from '../firebase/auth';
 import { api } from './api';
 
 export interface Article {
-  id: string;
+  id: number;
   titulo: string;
   autores: string;
   revista?: string;
@@ -50,46 +49,28 @@ export interface ArticleUpdate {
 }
 
 class ArticlesService {
-  private async getAuthConfig() {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new Error('Usuário não autenticado');
-    }
-
-    return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-  }
-
   async getArticles(): Promise<Article[]> {
-    const config = await this.getAuthConfig();
-    const response = await api.get<Article[]>('/articles', config);
+    const response = await api.get<Article[]>('/articles');
     return response.data;
   }
 
-  async getArticle(id: string): Promise<Article> {
-    const config = await this.getAuthConfig();
-    const response = await api.get<Article>(`/articles/${id}`, config);
+  async getArticle(id: number): Promise<Article> {
+    const response = await api.get<Article>(`/articles/${id}`);
     return response.data;
   }
 
   async createArticle(article: ArticleCreate): Promise<Article> {
-    const config = await this.getAuthConfig();
-    const response = await api.post<Article>('/articles', article, config);
+    const response = await api.post<Article>('/articles', article);
     return response.data;
   }
 
-  async updateArticle(id: string, article: ArticleUpdate): Promise<Article> {
-    const config = await this.getAuthConfig();
-    const response = await api.put<Article>(`/articles/${id}`, article, config);
+  async updateArticle(id: number, article: ArticleUpdate): Promise<Article> {
+    const response = await api.put<Article>(`/articles/${id}`, article);
     return response.data;
   }
 
-  async deleteArticle(id: string): Promise<void> {
-    const config = await this.getAuthConfig();
-    await api.delete(`/articles/${id}`, config);
+  async deleteArticle(id: number): Promise<void> {
+    await api.delete(`/articles/${id}`);
   }
 }
 
