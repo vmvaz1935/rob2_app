@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -30,14 +30,32 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: |
-          pip install -r rob2_app/backend/requirements.txt
+          pip install --no-cache-dir -r backend/requirements.txt
 
       - name: Run migrations
+        env:
+          PGPASSWORD: rob2_pass
         run: |
-          psql postgresql://rob2_user:rob2_pass@localhost/rob2_db -f rob2_app/backend/migrations/001_create_tables.sql
+          psql -h localhost -U rob2_user -d rob2_db -f backend/migrations/001_create_tables.sql
+          psql -h localhost -U rob2_user -d rob2_db -f backend/migrations/002_adjust_tables.sql
 
-      - name: Run tests
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgresql+psycopg://rob2_user:rob2_pass@localhost/rob2_db
         run: |
-          pytest -q rob2_app/backend/tests
+          pytest -q backend/tests
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build

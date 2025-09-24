@@ -7,6 +7,7 @@ no modelo `ProjectMember`.
 """
 
 from datetime import datetime, timedelta
+import os
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -17,9 +18,9 @@ from sqlalchemy.orm import Session
 
 from . import models, database
 
-SECRET_KEY = "CHANGE_THIS_SECRET"
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 horas
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 8)))  # default 8h
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -36,6 +37,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
@@ -63,12 +66,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_identifier = payload.get("sub")
+        if user_identifier is None:
             raise credentials_exception
-    except JWTError:
+        user_id = int(user_identifier)
+    except (JWTError, ValueError):
         raise credentials_exception
-    user = db.query(models.User).get(user_id)
+    user = db.get(models.User, user_id)
     if user is None:
         raise credentials_exception
     return user

@@ -81,17 +81,19 @@ def get_or_create_local_user(db: Session, firebase_uid: str, email: str, name: s
         return user
     
     # Criar novo usuário
+    from .auth import get_password_hash  # import tardio para evitar ciclos
+    random_placeholder = get_password_hash(firebase_uid or email)
+
     new_user = models.User(
-        id=int(firebase_uid.replace('-', '').replace('_', '')[:10]) if firebase_uid else None,  # ID numérico simples
-        nome=name,
+        nome=name or email,
         email=email,
-        senha_hash="firebase_auth"  # Placeholder, não usado
+        senha_hash=random_placeholder
     )
-    
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
     return new_user
 
 

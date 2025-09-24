@@ -1,43 +1,138 @@
-{
+﻿{
   "dominios": [
     {
       "dominio": 1,
       "descricao": "Viés do processo de randomização",
       "itens": [
-        {"id": "1.1", "texto": "A sequência de alocação foi verdadeiramente aleatória?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dependeDe": null, "dica": "Descrever gerador/permuta"},
-        {"id": "1.2", "texto": "A sequência de alocação foi ocultada até a inclusão?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
-        {"id": "1.3", "texto": "As características basais sugerem problemas na randomização?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dica": "Comparar grupos quanto a características clínicas"}
+        {
+          "id": "1.1",
+          "texto": "A sequência de alocação foi verdadeiramente aleatória?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Detalhar método de geração (por exemplo, tabela aleatória, software)"
+        },
+        {
+          "id": "1.2",
+          "texto": "A sequência de alocação foi ocultada até a inclusão?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Verificar uso de envelopes opacos, centralização etc."
+        },
+        {
+          "id": "1.3",
+          "texto": "As características basais sugerem problemas na randomização?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Comparar grupos quanto a características clínicas relevantes"
+        },
+        {
+          "id": "1.4",
+          "texto": "Se houve desequilíbrio basal, há justificativa plausível?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": "1.3",
+          "dica": "Considerar exclusões pós-randomização ou erro de digitação"
+        }
       ]
     },
     {
       "dominio": 2,
       "descricao": "Desvios das intervenções pretendidas (assignment/adherence)",
       "itens": [
-        {"id": "2.1", "texto": "Houve desvios das intervenções que poderiam afetar o desfecho?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
-        {"id": "2.2", "texto": "Os participantes e profissionais estavam cegos quanto à intervenção?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dica": "Cegamento ou mascaramento"}
+        {
+          "id": "2.1",
+          "texto": "Houve desvios das intervenções que poderiam afetar o desfecho?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Inclui cointervenções ou abandono diferencial"
+        },
+        {
+          "id": "2.2",
+          "texto": "Os participantes e profissionais estavam cegos quanto à intervenção?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Cegamento ou mascaramento"
+        },
+        {
+          "id": "2.3",
+          "texto": "As análises seguiram a alocação inicial (intention-to-treat)?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": "2.1",
+          "dica": "Verificar se participantes foram analisados no grupo original"
+        }
       ]
     },
     {
       "dominio": 3,
       "descricao": "Dados de desfecho ausentes",
       "itens": [
-        {"id": "3.1", "texto": "A proporção de dados ausentes é suficiente para impactar o resultado?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
-        {"id": "3.2", "texto": "A ausência de dados está associada ao verdadeiro valor do desfecho?", "respostas": ["Y", "PY", "PN", "N", "NI"]}
+        {
+          "id": "3.1",
+          "texto": "A proporção de dados ausentes é suficiente para impactar o resultado?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Considerar perdas além de 5-10% dependendo do desfecho"
+        },
+        {
+          "id": "3.2",
+          "texto": "A ausência de dados está relacionada ao verdadeiro valor do desfecho?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Investigar se perdas estão concentradas em um grupo"
+        },
+        {
+          "id": "3.3",
+          "texto": "As imputações/tratamento de dados ausentes foram apropriados?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": "3.1",
+          "dica": "Checar análise de sensibilidade e métodos estatísticos"
+        }
       ]
     },
     {
       "dominio": 4,
       "descricao": "Mensuração do desfecho",
       "itens": [
-        {"id": "4.1", "texto": "O método de mensuração do desfecho é válido e confiável?", "respostas": ["Y", "PY", "PN", "N", "NI"]},
-        {"id": "4.2", "texto": "Os avaliadores estavam cegos quanto à intervenção?", "respostas": ["Y", "PY", "PN", "N", "NI"]}
+        {
+          "id": "4.1",
+          "texto": "O método de mensuração do desfecho é válido e confiável?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Instrumentos padronizados, validações previas"
+        },
+        {
+          "id": "4.2",
+          "texto": "Os avaliadores estavam cegos quanto à intervenção recebida?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Aplicável para desfechos subjetivos"
+        },
+        {
+          "id": "4.3",
+          "texto": "A mensuração diferiu entre grupos ou sofreu interferências?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Protocolos distintos ou calibração inadequada"
+        }
       ]
     },
     {
       "dominio": 5,
       "descricao": "Seleção do resultado relatado",
       "itens": [
-        {"id": "5.1", "texto": "As análises do desfecho estavam pré‑especificadas?", "respostas": ["Y", "PY", "PN", "N", "NI"], "dica": "Verificar protocolo ou registro"}
+        {
+          "id": "5.1",
+          "texto": "As análises do desfecho estavam pré-especificadas?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": null,
+          "dica": "Conferir protocolo/registro prospectivo"
+        },
+        {
+          "id": "5.2",
+          "texto": "Há evidência de seleção ou substituição seletiva de resultados?",
+          "respostas": ["Y", "PY", "PN", "N", "NI", "NA"],
+          "dependeDe": "5.1",
+          "dica": "Comparar resultados reportados com registrados"
+        }
       ]
     }
   ]

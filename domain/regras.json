@@ -4,24 +4,77 @@
       "dominio": 1,
       "avaliacao": [
         {
-          "quando": {"1.2": {"in": ["Y", "PY"]}, "1.3": {"in": ["N", "PN", "NI"]}, "1.1": {"in": ["Y", "PY", "NI"]}},
+          "quando": {
+            "1.1": {
+              "in": [
+                "N",
+                "PN"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Sequência de alocação não aleatória ou claramente previsível."
+        },
+        {
+          "quando": {
+            "1.2": {
+              "in": [
+                "N",
+                "PN"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Ocultação da sequência insuficiente, abrindo espaço para manipulação."
+        },
+        {
+          "quando": {
+            "1.3": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            },
+            "1.4": {
+              "not_in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Desequilíbrios basais sem justificativa plausível sugerem falha na randomização."
+        },
+        {
+          "quando": {
+            "1.1": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            },
+            "1.2": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            },
+            "1.3": {
+              "in": [
+                "N",
+                "PN",
+                "NI",
+                "NA"
+              ]
+            }
+          },
           "resultado": "Baixo",
-          "justificativa": "Ocultação adequada; sem desequilíbrios claros; sequência aleatória ou plausível."
-        },
-        {
-          "quando": {"1.2": {"in": ["N", "PN"]}},
-          "resultado": "Alto",
-          "justificativa": "A sequência não foi adequadamente ocultada."
-        },
-        {
-          "quando": {"1.2": {"in": ["NI"]}, "1.3": {"in": ["Y", "PY"]}},
-          "resultado": "Alto",
-          "justificativa": "Desequilíbrios basais sugerem falha na randomização."
+          "justificativa": "Randomização e ocultação adequadas, sem desequilíbrio basal relevante."
         },
         {
           "default": true,
           "resultado": "Algumas preocupações",
-          "justificativa": "Informação insuficiente ou sinais mistos."
+          "justificativa": "Informação insuficiente para confirmar execução adequada da randomização."
         }
       ]
     },
@@ -29,24 +82,67 @@
       "dominio": 2,
       "avaliacao": [
         {
-          "quando": {"2.1": {"in": ["N", "PN"]}, "2.2": {"in": ["Y", "PY"]}},
+          "quando": {
+            "2.1": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            },
+            "2.3": {
+              "not_in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Ocorreram desvios relevantes sem análise apropriada por intenção de tratar."
+        },
+        {
+          "quando": {
+            "2.2": {
+              "in": [
+                "N",
+                "PN"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Ausência de cegamento aumenta risco de desvios direcionados."
+        },
+        {
+          "quando": {
+            "2.1": {
+              "in": [
+                "N",
+                "PN",
+                "NA"
+              ]
+            },
+            "2.2": {
+              "in": [
+                "Y",
+                "PY",
+                "NA"
+              ]
+            },
+            "2.3": {
+              "in": [
+                "Y",
+                "PY",
+                "NA",
+                "NI"
+              ]
+            }
+          },
           "resultado": "Baixo",
-          "justificativa": "Poucos desvios e cegamento adequado."
-        },
-        {
-          "quando": {"2.1": {"in": ["Y", "PY"]}},
-          "resultado": "Alto",
-          "justificativa": "Desvios das intervenções podem afetar o desfecho."
-        },
-        {
-          "quando": {"2.2": {"in": ["N", "PN"]}},
-          "resultado": "Alto",
-          "justificativa": "Ausência de cegamento aumenta risco de desvios."
+          "justificativa": "Sem desvios significativos e com manutenção da análise segundo alocação."
         },
         {
           "default": true,
           "resultado": "Algumas preocupações",
-          "justificativa": "Informação insuficiente sobre desvios ou cegamento."
+          "justificativa": "Não foi possível descartar impacto dos desvios sobre o desfecho."
         }
       ]
     },
@@ -54,24 +150,61 @@
       "dominio": 3,
       "avaliacao": [
         {
-          "quando": {"3.1": {"in": ["N", "PN"]}, "3.2": {"in": ["N", "PN"]}},
+          "quando": {
+            "3.1": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Proporção de dados ausentes pode comprometer a validade do resultado."
+        },
+        {
+          "quando": {
+            "3.2": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Perdas relacionadas ao desfecho indicam viés sistemático."
+        },
+        {
+          "quando": {
+            "3.1": {
+              "in": [
+                "N",
+                "PN",
+                "NA"
+              ]
+            },
+            "3.2": {
+              "in": [
+                "N",
+                "PN",
+                "NA"
+              ]
+            },
+            "3.3": {
+              "in": [
+                "Y",
+                "PY",
+                "NA",
+                "NI"
+              ]
+            }
+          },
           "resultado": "Baixo",
-          "justificativa": "Poucos dados ausentes e ausências não relacionadas ao desfecho."
-        },
-        {
-          "quando": {"3.1": {"in": ["Y", "PY"]}},
-          "resultado": "Alto",
-          "justificativa": "Proporção de dados ausentes pode enviesar o resultado."
-        },
-        {
-          "quando": {"3.2": {"in": ["Y", "PY"]}},
-          "resultado": "Alto",
-          "justificativa": "Ausência de dados está associada ao verdadeiro valor do desfecho."
+          "justificativa": "Dados ausentes irrelevantes ou tratados com métodos apropriados."
         },
         {
           "default": true,
           "resultado": "Algumas preocupações",
-          "justificativa": "Informação insuficiente sobre dados ausentes."
+          "justificativa": "Incerteza sobre o impacto das perdas e o método de imputação."
         }
       ]
     },
@@ -79,24 +212,79 @@
       "dominio": 4,
       "avaliacao": [
         {
-          "quando": {"4.1": {"in": ["Y", "PY"]}, "4.2": {"in": ["Y", "PY"]}},
+          "quando": {
+            "4.1": {
+              "in": [
+                "N",
+                "PN"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Método de mensuração inválido ou não confiável."
+        },
+        {
+          "quando": {
+            "4.2": {
+              "in": [
+                "N",
+                "PN"
+              ]
+            },
+            "4.1": {
+              "not_in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Ausência de cegamento em desfechos subjetivos aumenta risco de viés."
+        },
+        {
+          "quando": {
+            "4.3": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Mensuração diferenciada entre grupos pode distorcer o efeito."
+        },
+        {
+          "quando": {
+            "4.1": {
+              "in": [
+                "Y",
+                "PY",
+                "NA"
+              ]
+            },
+            "4.2": {
+              "in": [
+                "Y",
+                "PY",
+                "NA"
+              ]
+            },
+            "4.3": {
+              "in": [
+                "N",
+                "PN",
+                "NA",
+                "NI"
+              ]
+            }
+          },
           "resultado": "Baixo",
-          "justificativa": "Método de mensuração válido e avaliadores cegos."
-        },
-        {
-          "quando": {"4.1": {"in": ["N", "PN"]}},
-          "resultado": "Alto",
-          "justificativa": "Método de mensuração inválido ou duvidoso."
-        },
-        {
-          "quando": {"4.2": {"in": ["N", "PN"]}},
-          "resultado": "Alto",
-          "justificativa": "Avaliação não cegada pode introduzir viés."
+          "justificativa": "Mensuração válida, padronizada e sem influência do conhecimento da intervenção."
         },
         {
           "default": true,
           "resultado": "Algumas preocupações",
-          "justificativa": "Informação insuficiente sobre mensuração."
+          "justificativa": "Informações incompletas sobre o processo de mensuração."
         }
       ]
     },
@@ -104,19 +292,59 @@
       "dominio": 5,
       "avaliacao": [
         {
-          "quando": {"5.1": {"in": ["Y", "PY"]}},
-          "resultado": "Baixo",
-          "justificativa": "Análises pré‑especificadas e consistentes."
+          "quando": {
+            "5.2": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            }
+          },
+          "resultado": "Alto",
+          "justificativa": "Resultados foram selecionados ou substituídos após conhecer os dados."
         },
         {
-          "quando": {"5.1": {"in": ["N", "PN"]}},
-          "resultado": "Alto",
-          "justificativa": "Existe risco de seleção seletiva dos resultados relatados."
+          "quando": {
+            "5.1": {
+              "in": [
+                "Y",
+                "PY"
+              ]
+            },
+            "5.2": {
+              "in": [
+                "N",
+                "PN",
+                "NA",
+                "NI"
+              ]
+            }
+          },
+          "resultado": "Baixo",
+          "justificativa": "Análises pré-especificadas e relatadas conforme planejamento."
+        },
+        {
+          "quando": {
+            "5.1": {
+              "in": [
+                "NI",
+                "NA"
+              ]
+            },
+            "5.2": {
+              "in": [
+                "NI",
+                "NA"
+              ]
+            }
+          },
+          "resultado": "Algumas preocupações",
+          "justificativa": "Não há documentação suficiente para julgar a seleção dos resultados."
         },
         {
           "default": true,
           "resultado": "Algumas preocupações",
-          "justificativa": "Informação insuficiente para avaliar a seleção do resultado."
+          "justificativa": "Evidências insuficientes acerca do pré-registro ou seleções pós-hoc."
         }
       ]
     }

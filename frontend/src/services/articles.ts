@@ -1,6 +1,5 @@
-import { getAuthToken } from '../firebase/auth';
-
-const API_BASE_URL = 'http://localhost:8000/api';
+﻿import { getAuthToken } from '../firebase/auth';
+import { api } from './api';
 
 export interface Article {
   id: string;
@@ -51,86 +50,46 @@ export interface ArticleUpdate {
 }
 
 class ArticlesService {
-  private async getHeaders(): Promise<HeadersInit> {
+  private async getAuthConfig() {
     const token = await getAuthToken();
     if (!token) {
       throw new Error('Usuário não autenticado');
     }
 
     return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     };
   }
 
   async getArticles(): Promise<Article[]> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${API_BASE_URL}/articles`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao buscar artigos: ${response.statusText}`);
-    }
-
-    return response.json();
+    const config = await this.getAuthConfig();
+    const response = await api.get<Article[]>('/articles', config);
+    return response.data;
   }
 
   async getArticle(id: string): Promise<Article> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${API_BASE_URL}/articles/${id}`, {
-      method: 'GET',
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao buscar artigo: ${response.statusText}`);
-    }
-
-    return response.json();
+    const config = await this.getAuthConfig();
+    const response = await api.get<Article>(`/articles/${id}`, config);
+    return response.data;
   }
 
   async createArticle(article: ArticleCreate): Promise<Article> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${API_BASE_URL}/articles`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(article),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao criar artigo: ${response.statusText}`);
-    }
-
-    return response.json();
+    const config = await this.getAuthConfig();
+    const response = await api.post<Article>('/articles', article, config);
+    return response.data;
   }
 
   async updateArticle(id: string, article: ArticleUpdate): Promise<Article> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${API_BASE_URL}/articles/${id}`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(article),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao atualizar artigo: ${response.statusText}`);
-    }
-
-    return response.json();
+    const config = await this.getAuthConfig();
+    const response = await api.put<Article>(`/articles/${id}`, article, config);
+    return response.data;
   }
 
   async deleteArticle(id: string): Promise<void> {
-    const headers = await this.getHeaders();
-    const response = await fetch(`${API_BASE_URL}/articles/${id}`, {
-      method: 'DELETE',
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao deletar artigo: ${response.statusText}`);
-    }
+    const config = await this.getAuthConfig();
+    await api.delete(`/articles/${id}`, config);
   }
 }
 

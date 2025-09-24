@@ -1,21 +1,10 @@
-"""Motor de regras para avaliação do risco de viés.
-
-Este módulo carrega as regras de decisão a partir de arquivos JSON localizados
-na pasta `domain/` e provê funções para calcular o julgamento de cada
-domínio e o julgamento global de uma avaliação.
-
-As regras são representadas como árvores de decisão simples, onde cada
-regra contém condições (campo `quando`) que mapeiam IDs de perguntas
-para listas de respostas permitidas. A primeira regra cujas condições
-forem satisfeitas define o julgamento. Caso nenhuma regra seja satisfeita,
-aplica‑se a regra marcada como `default`.
-"""
+﻿"""Rule engine responsible for computing RoB 2 judgements."""
 
 import json
 from pathlib import Path
 from typing import Dict, Tuple, List
 
-ROOT_DIR = Path(__file__).resolve().parents[2]  # raiz do repositório
+ROOT_DIR = Path(__file__).resolve().parents[2]
 REGRAS_PATH = ROOT_DIR / "domain" / "regras.json"
 REGRA_GLOBAL_PATH = ROOT_DIR / "domain" / "regra_global.json"
 
@@ -26,12 +15,11 @@ _GLOBAL_RULE_CACHE = None
 def _load_rules():
     global _RULES_CACHE
     if _RULES_CACHE is None:
-        with open(REGRAS_PATH, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # Converter lista para dicionário indexado por domínio
+        with open(REGRAS_PATH, "r", encoding="utf-8") as file_obj:
+            data = json.load(file_obj)
         rules_dict = {}
         for item in data.get("dominios", []):
-            rules_dict[int(item["dominio"])] = item["avaliacao"]
+            rules_dict[int(item["dominio"])] = item.get("avaliacao", [])
         _RULES_CACHE = rules_dict
     return _RULES_CACHE
 
@@ -39,80 +27,95 @@ def _load_rules():
 def _load_global_rules():
     global _GLOBAL_RULE_CACHE
     if _GLOBAL_RULE_CACHE is None:
-        with open(REGRA_GLOBAL_PATH, "r", encoding="utf-8") as f:
-            _GLOBAL_RULE_CACHE = json.load(f).get("global", {})
+        with open(REGRA_GLOBAL_PATH, "r", encoding="utf-8") as file_obj:
+            _GLOBAL_RULE_CACHE = json.load(file_obj).get("global", {})
     return _GLOBAL_RULE_CACHE
 
 
-def evaluate_domain(domain_type: int, respostas: Dict[str, str]) -> Tuple[str, str]:
-    """Calcula o julgamento e a justificativa para um domínio específico.
+def _value_matches(condition: Dict[str, List[str]], value: str) -> bool:
+    """Evaluate a single condition block against the provided value."""
+    if value is None:
+        # Treat missing answers as failure unless condition explicitly accepts "NI" or "NA"
+        allowed_missing = set(condition.get("in", [])) & {"NI", "NA"}
+        if allowed_missing:
+            return True
+        return False
 
-    :param domain_type: número do domínio (1–5)
-    :param respostas: dicionário de respostas, mapeando ID da pergunta para abreviação (Y/PY/PN/N/NI/NA)
-    :returns: tupla `(julgamento, justificativa)`
-    """
+    allowed = condition.get("in")
+    if allowed is not None and value not in allowed:
+        return False
+
+    forbidden = condition.get("not_in")
+    if forbidden is not None and value in forbidden:
+        return False
+
+    equals_value = condition.get("equals")
+    if equals_value is not None and value != equals_value:
+        return False
+
+    not_equals_value = condition.get("not_equals")
+    if not_equals_value is not None and value == not_equals_value:
+        return False
+
+    return True
+
+
+def _rule_matches(rule: Dict[str, Dict[str, List[str]]], respostas: Dict[str, str]) -> bool:
+    conditions = rule.get("quando", {})
+    for pergunta_id, condition in conditions.items():
+        if not _value_matches(condition, respostas.get(pergunta_id)):
+            return False
+    return True
+
+
+def evaluate_domain(domain_type: int, respostas: Dict[str, str]) -> Tuple[str, str]:
+    """Return the judgement and rationale for a specific domain."""
     regras = _load_rules()
     domain_rules = regras.get(domain_type, [])
     default_rule = None
+
     for rule in domain_rules:
         if rule.get("default"):
             default_rule = rule
             continue
-        condicoes = rule.get("quando", {})
-        match = True
-        for pergunta_id, cond in condicoes.items():
-            valores_validos = cond.get("in", [])
-            valor = respostas.get(pergunta_id)
-            if valor not in valores_validos:
-                match = False
-                break
-        if match:
+
+        if _rule_matches(rule, respostas):
             return rule["resultado"], rule.get("justificativa", "")
-    # Nenhuma regra específica se aplicou
+
     if default_rule:
-        return default_rule["resultado"], default_rule.get("justificativa", "")
-    # fallback
-    return "Algumas preocupações", "Regra não definida para este domínio."
+        return default_rule.get("resultado", "Algumas preocupações"), default_rule.get("justificativa", "")
+
+    return "Algumas preocupações", "Nenhuma regra foi aplicada para este domínio."
 
 
 def evaluate_global(julgamentos: List[str]) -> str:
-    """Determina o julgamento global a partir dos julgamentos dos domínios.
+    """Determine the overall judgement from domain level results."""
+    filtered = [j for j in julgamentos if j and j.upper() != "NA"]
+    if not filtered:
+        return "Algumas preocupações"
 
-    A lógica aplicada é:
-    * Se qualquer domínio for "Alto", o global é "Alto".
-    * Caso contrário, se qualquer domínio for "Algumas preocupações", o global é "Algumas preocupações".
-    * Se todos os domínios forem "Baixo", o global é "Baixo".
-
-    :param julgamentos: lista com os julgamentos de cada domínio (tamanho 1–5)
-    :returns: julgamento global
-    """
     rules = _load_global_rules()
-    # Verificar condição de alto risco
+
     for cond in rules.get("altoSe", []):
-        if cond.get("qualquerDominio"):
-            target = cond["qualquerDominio"]
-            if target in julgamentos:
-                return "Alto"
-    # Verificar condição de algumas preocupações
+        target = cond.get("qualquerDominio")
+        if target and target in filtered:
+            return "Alto"
+
     for cond in rules.get("algumasPreocupacoesSe", []):
-        if cond.get("qualquerDominio"):
-            target = cond["qualquerDominio"]
-            if target in julgamentos:
-                return "Algumas preocupações"
-    # Verificar condição de baixo risco
+        target = cond.get("qualquerDominio")
+        if target and target in filtered:
+            return "Algumas preocupações"
+
     for cond in rules.get("baixoSe", []):
-        if cond.get("todosDominios"):
-            target = cond["todosDominios"]
-            if all(j == target for j in julgamentos):
-                return "Baixo"
-    # Fallback
+        target = cond.get("todosDominios")
+        if target and filtered and all(item == target for item in filtered):
+            return "Baixo"
+
     return "Algumas preocupações"
 
 
 if __name__ == "__main__":
-    # Teste rápido do motor com respostas de exemplo
-    example_answers = {"1.1": "Y", "1.2": "PY", "1.3": "N"}
-    judgment, justif = evaluate_domain(1, example_answers)
-    print(f"Julgamento Domínio 1: {judgment} (motivo: {justif})")
-    global_j = evaluate_global([judgment])
-    print(f"Julgamento global: {global_j}")
+    sample_answers = {"1.1": "Y", "1.2": "Y", "1.3": "N"}
+    result, reason = evaluate_domain(1, sample_answers)
+    print(f"Domínio 1: {result} ({reason})")
+    print("Global:", evaluate_global([result]))

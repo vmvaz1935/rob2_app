@@ -14,29 +14,34 @@ abas:
       Q1_1: "Dominio[1].respostas[1.1]"
       Q1_2: "Dominio[1].respostas[1.2]"
       Q1_3: "Dominio[1].respostas[1.3]"
+      Q1_4: "Dominio[1].respostas[1.4]"
       Comentarios: "Dominio[1].comentarios"
       Julgamento: "AvaliacaoRob2.julgamentoDominio[1]"
   Dominio2:
     colunas:
       Q2_1: "Dominio[2].respostas[2.1]"
       Q2_2: "Dominio[2].respostas[2.2]"
+      Q2_3: "Dominio[2].respostas[2.3]"
       Comentarios: "Dominio[2].comentarios"
       Julgamento: "AvaliacaoRob2.julgamentoDominio[2]"
   Dominio3:
     colunas:
       Q3_1: "Dominio[3].respostas[3.1]"
       Q3_2: "Dominio[3].respostas[3.2]"
+      Q3_3: "Dominio[3].respostas[3.3]"
       Comentarios: "Dominio[3].comentarios"
       Julgamento: "AvaliacaoRob2.julgamentoDominio[3]"
   Dominio4:
     colunas:
       Q4_1: "Dominio[4].respostas[4.1]"
       Q4_2: "Dominio[4].respostas[4.2]"
+      Q4_3: "Dominio[4].respostas[4.3]"
       Comentarios: "Dominio[4].comentarios"
       Julgamento: "AvaliacaoRob2.julgamentoDominio[4]"
   Dominio5:
     colunas:
       Q5_1: "Dominio[5].respostas[5.1]"
+      Q5_2: "Dominio[5].respostas[5.2]"
       Comentarios: "Dominio[5].comentarios"
       Julgamento: "AvaliacaoRob2.julgamentoDominio[5]"
   Resumo:

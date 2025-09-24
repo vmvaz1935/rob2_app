@@ -62,6 +62,7 @@ class DomainBase(BaseModel):
     respostas: Dict[str, str]
     comentarios: Optional[str] = None
     observacoes_itens: Optional[Dict[str, str]] = None
+    justificativa: Optional[str] = None
     direcao: Optional[str] = None
 
 
@@ -72,6 +73,7 @@ class DomainCreate(DomainBase):
 class Domain(DomainBase):
     id: int
     julgamento: Optional[str] = None
+    justificativa: Optional[str] = None
 
     class Config:
         orm_mode = True

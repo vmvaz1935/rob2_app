@@ -12,7 +12,7 @@ import os
 # URL de conexão (exemplo: postgresql://usuario:senha@db:5432/rob2)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://rob2_user:rob2_pass@db:5432/rob2_db",
+    "postgresql+psycopg://rob2_user:rob2_pass@db:5432/rob2_db",
 )
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
