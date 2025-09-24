@@ -190,8 +190,10 @@ const App: React.FC = () => {
   const [step, setStep] = useState(0);
   const [preConsiderations, setPreConsiderations] = useState('');
   const [respostas, setRespostas] = useState<Record<number, Record<string, string>>>({});
+  const [observacoes, setObservacoes] = useState<Record<number, Record<string, string>>>({});
   const [apiStatus, setApiStatus] = useState<'unknown' | 'ok' | 'down'>('unknown');
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<DomainDefinition[]>(FALLBACK_DOMAINS);
@@ -319,41 +321,76 @@ const App: React.FC = () => {
     }
   };
 
+
   const handleChangeResposta = (dominio: number, perguntaId: string, valor: string) => {
+    const definition = domainMap[dominio];
+    const dependentIdsToReset: string[] = [];
+  
     setRespostas((previous) => {
       const currentAnswers = previous[dominio] || {};
       const updatedAnswers: Record<string, string> = {
         ...currentAnswers,
         [perguntaId]: valor,
       };
-
-      const definition = domainMap[dominio];
+  
       if (definition) {
         definition.itens
           .filter((item) => item.dependeDe === perguntaId)
           .forEach((dependentQuestion) => {
             if (shouldDisableQuestion(updatedAnswers, dependentQuestion)) {
               updatedAnswers[dependentQuestion.id] = 'NA';
+              dependentIdsToReset.push(dependentQuestion.id);
             }
           });
       }
-
+  
       return {
         ...previous,
         [dominio]: updatedAnswers,
       };
     });
+  
+    if (dependentIdsToReset.length) {
+      setObservacoes((previous) => {
+        const domainObservations = { ...(previous[dominio] || {}) };
+        dependentIdsToReset.forEach((id) => {
+          delete domainObservations[id];
+        });
+        return {
+          ...previous,
+          [dominio]: domainObservations,
+        };
+      });
+    }
+  };
+  
+  const handleChangeObservacao = (dominio: number, perguntaId: string, valor: string) => {
+    setObservacoes((previous) => ({
+      ...previous,
+      [dominio]: {
+        ...(previous[dominio] || {}),
+        [perguntaId]: valor,
+      },
+    }));
   };
 
   const buildPayload = () => {
-    const dominiosPayload = domainIds.map((dominioId) => ({
-      tipo: dominioId,
-      respostas: respostas[dominioId] || {},
-      comentarios: null,
-      observacoes_itens: {},
-      direcao: 'NA',
-    }));
-
+    const dominiosPayload = domainIds.map((dominioId) => {
+      const respostasDom = respostas[dominioId] || {};
+      const observacoesDom = observacoes[dominioId] || {};
+      const observacoesFiltradas = Object.fromEntries(
+        Object.entries(observacoesDom).filter(([, value]) => value && value.trim().length > 0),
+      );
+  
+      return {
+        tipo: dominioId,
+        respostas: respostasDom,
+        comentarios: null,
+        observacoes_itens: observacoesFiltradas,
+        direcao: 'NA',
+      };
+    });
+  
     return {
       pre_consideracoes: preConsiderations,
       dominios: dominiosPayload,
@@ -362,9 +399,9 @@ const App: React.FC = () => {
 
   const handleConcluir = async () => {
     setAlert(null);
-    const data = buildPayload();
+    const payload = buildPayload();
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -381,24 +418,76 @@ const App: React.FC = () => {
     try {
       await api.post('/evaluations', {
         resultado_id: resultId,
-        pre_consideracoes: data.pre_consideracoes,
-        dominios: data.dominios,
+        pre_consideracoes: payload.pre_consideracoes,
+        dominios: payload.dominios,
       });
-      setAlert({ type: 'success', message: 'Avaliação sincronizada com sucesso.' });
+      setAlert({ type: 'success', message: 'Avaliacao sincronizada com sucesso.' });
     } catch (error) {
-      console.error('Falha ao enviar avaliação', error);
+      console.error('Falha ao enviar avaliacao', error);
       setAlert({
         type: 'error',
-        message: `Não foi possível enviar a avaliação: ${getErrorMessage(error)}`,
+        message: `Nao foi possivel enviar a avaliacao: ${getErrorMessage(error)}`,
       });
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setAlert(null);
+    if (!apiToken) {
+      setAlert({ type: 'info', message: 'Informe um token JWT para gerar o PDF.' });
+      return;
+    }
+
+    setDownloadingPdf(true);
+    const payload = buildPayload();
+    try {
+      await api.post('/evaluations', {
+        resultado_id: resultId,
+        pre_consideracoes: payload.pre_consideracoes,
+        dominios: payload.dominios,
+      });
+
+      const response = await api.get(`/results/${resultId}/export`, {
+        params: { format: 'pdf' },
+        responseType: 'blob',
+      });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      let filename = `avaliacao_resultado_${resultId}.pdf`;
+      const disposition = response.headers['content-disposition'];
+      if (typeof disposition === 'string') {
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match?.[1]) {
+          filename = match[1];
+        }
+      }
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
+
+      setAlert({ type: 'success', message: 'PDF gerado com sucesso.' });
+    } catch (error) {
+      console.error('Falha ao gerar PDF', error);
+      setAlert({
+        type: 'error',
+        message: `Nao foi possivel gerar o PDF: ${getErrorMessage(error)}`,
+      });
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+
   const handleResetEvaluation = () => {
     setPreConsiderations('');
     setRespostas({});
+    setObservacoes({});
     setStep(0);
     setShowResetConfirm(false);
     setAlert({ type: 'success', message: 'Avaliação reiniciada.' });
@@ -416,23 +505,27 @@ const App: React.FC = () => {
     </div>
   );
 
+
   const renderDomain = (dominioId: number) => {
     const definition = domainMap[dominioId] || FALLBACK_DOMAINS.find((item) => item.dominio === dominioId);
     if (!definition) {
       return <p>Domínio não encontrado.</p>;
     }
-
+  
     const answersForDomain = respostas[dominioId] || {};
-
+    const observationsForDomain = observacoes[dominioId] || {};
+  
     return (
       <fieldset className="flex flex-col gap-4" aria-labelledby={`domain-${dominioId}-legend`}>
         <legend id={`domain-${dominioId}-legend`} className="text-lg font-semibold text-gray-900">
-          Domínio {dominioId} — {definition.descricao}
+          Domínio {dominioId} – {definition.descricao}
         </legend>
         {definition.itens.map((item) => {
           const disabled = shouldDisableQuestion(answersForDomain, item);
           const groupName = `${dominioId}-${item.id}`;
           const hintId = `${groupName}-hint`;
+          const observationId = `${groupName}-observation`;
+          const observationValue = observationsForDomain[item.id] ?? '';
           return (
             <div key={item.id} className="flex flex-col gap-2 rounded-md bg-white p-4 shadow-sm border border-gray-200">
               <div className="flex flex-col gap-1">
@@ -465,6 +558,22 @@ const App: React.FC = () => {
                   </label>
                 ))}
               </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor={observationId} className="text-sm font-medium text-gray-800">
+                  Observações (opcional)
+                </label>
+                <textarea
+                  id={observationId}
+                  name={`${groupName}-observacao`}
+                  value={observationValue}
+                  onChange={(event) => handleChangeObservacao(dominioId, item.id, event.target.value)}
+                  disabled={disabled}
+                  aria-describedby={hintId}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  placeholder="Inclua justificativas, fontes ou notas de auditoria."
+                  rows={3}
+                />
+              </div>
             </div>
           );
         })}
@@ -475,22 +584,31 @@ const App: React.FC = () => {
   const renderSummary = () => (
     <div className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold text-gray-900">Resumo das respostas</h2>
-      <p><strong>Pré-considerações:</strong> {preConsiderations || '—'}</p>
+      <p><strong>Pré-considerações:</strong> {preConsiderations || '–'}</p>
       {domainIds.map((dominioId) => {
         const domain = domainMap[dominioId];
         const domainAnswers = respostas[dominioId] || {};
+        const domainObservations = observacoes[dominioId] || {};
         if (!domain) {
           return null;
         }
         return (
           <div key={dominioId} className="rounded-md border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="font-semibold text-gray-900">Domínio {dominioId} — {domain.descricao}</h3>
-            <ul className="mt-2 space-y-1 text-sm text-gray-700">
-              {domain.itens.map((item) => (
-                <li key={item.id}>
-                  {item.id}: {answerLabels[domainAnswers[item.id]] || domainAnswers[item.id] || 'Não respondido'}
-                </li>
-              ))}
+            <h3 className="font-semibold text-gray-900">Domínio {dominioId} – {domain.descricao}</h3>
+            <ul className="mt-2 space-y-2 text-sm text-gray-700">
+              {domain.itens.map((item) => {
+                const answerValue = domainAnswers[item.id];
+                const answerLabel = answerLabels[answerValue] || answerValue || 'Não respondido';
+                const observationText = domainObservations[item.id]?.trim();
+                return (
+                  <li key={item.id} className="space-y-1">
+                    <p>{item.id}: {answerLabel}</p>
+                    {observationText && (
+                      <p className="text-sm text-gray-500">Observação: {observationText}</p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         );
@@ -600,17 +718,27 @@ const App: React.FC = () => {
                 disabled={!isCurrentStepComplete || metadataLoading}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                Próximo
+                Proximo
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={handleConcluir}
-                disabled={submitting}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-progress"
-              >
-                {submitting ? 'Enviando...' : 'Concluir'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf || submitting}
+                  className="rounded-md border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:cursor-progress disabled:opacity-60"
+                >
+                  {downloadingPdf ? 'Gerando...' : 'Baixar PDF'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConcluir}
+                  disabled={submitting}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-progress"
+                >
+                  {submitting ? 'Enviando...' : 'Concluir'}
+                </button>
+              </div>
             )}
           </div>
         </div>

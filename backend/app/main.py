@@ -9,11 +9,11 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from fastapi.responses import StreamingResponse
 from . import (
@@ -47,6 +47,50 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Accept-Language"],
 )
+
+
+@app.post("/api/users/register", response_model=schemas.User, status_code=201, summary="Registra um novo usuário")
+def register_user(
+    user_in: schemas.UserCreate,
+    db: Session = Depends(database.get_db),
+    current_user: Optional[models.User] = Depends(auth.get_current_user_optional),
+):
+    existing_user = db.query(models.User).filter(models.User.email == user_in.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+
+    total_users = db.query(models.User).count()
+    if total_users > 0 and current_user is None:
+        raise HTTPException(status_code=401, detail="Autenticação necessária para registrar novos usuários")
+
+    novo_usuario = models.User(
+        nome=user_in.nome,
+        email=user_in.email,
+        senha_hash=auth.get_password_hash(user_in.senha),
+    )
+    db.add(novo_usuario)
+    db.commit()
+    db.refresh(novo_usuario)
+    return novo_usuario
+
+
+@app.get("/api/users/me", response_model=schemas.User, summary="Retorna o usuário autenticado")
+def get_me(current_user: models.User = Depends(auth.get_current_user)):
+    return current_user
+
+
+@app.post("/api/users/change-password", summary="Altera a senha do usuário logado", status_code=204)
+def change_password(
+    payload: schemas.UserPasswordChange,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    if not auth.verify_password(payload.senha_atual, current_user.senha_hash):
+        raise HTTPException(status_code=400, detail="Senha atual inválida")
+
+    current_user.senha_hash = auth.get_password_hash(payload.nova_senha)
+    db.commit()
+    return Response(status_code=204)
 
 
 @app.post("/api/auth/login", summary="Realiza login e retorna um token JWT")

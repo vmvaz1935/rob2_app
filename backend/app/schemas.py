@@ -145,3 +145,7 @@ class Article(ArticleBase):
 
     class Config:
         orm_mode = True
+
+class UserPasswordChange(BaseModel):
+    senha_atual: str = Field(..., min_length=6)
+    nova_senha: str = Field(..., min_length=6)

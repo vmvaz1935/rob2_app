@@ -18,6 +18,10 @@
    VALUES ('Admin', 'admin@example.com', '$2b$12$u01DqCYC5sO2HYBK4SlMQeY4RyPgjDyqzGJlQuMPjpiKFFitvolG6');
    -- senha: admin123
    ```
+   - ou usando o script CLI (dentro de `backend/`):
+     ```bash
+     python -m scripts.create_user "Admin" admin@example.com admin123
+     ```
 4. **Iniciar backend**
    ```bash
    cd backend
